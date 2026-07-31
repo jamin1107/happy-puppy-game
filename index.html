@@ -410,6 +410,20 @@ const G = {
     circuitSolved: false,     // B2 circuit puzzle
     conchBlown: false,        // blew conch at SM mall
     hiddenEnding: false,      // hidden ending triggered
+    // Horror quest flags
+    horrorStarted: false,     // horror quest triggered
+    horrorEnded: false,       // horror quest completed (any ending)
+    wangClickCount: 0,        // clicks on wang ayi after 23:00
+    hasCopperKey: false,      // 旧铜钥匙
+    hasIronWire: false,       // 生锈铁丝
+    hasDiary: false,          // 泛黄日记
+    hasAltarKey: false,       // 祭坛钥匙
+    photoFragments: 0,        // 照片碎片 count (0-4)
+    diaryRead: false,         // read diary
+    mirror1Seen: false,       // saw ghost in mirror 1
+    middleCandleLit: false,   // lit middle candle (punished)
+    ghostNameKnown: false,    // learned ghost's name "红"
+    horrorScene: '',          // current horror sub-scene
   },
   // Mini-game state
   miniGame: null,
@@ -449,6 +463,18 @@ const imagePaths = {
   teacher: 'assets/images/teacher.jpg',
   guard: 'assets/images/guard.jpg',
   cashier: 'assets/images/cashier.jpg',
+  // Horror quest images
+  ghost_red_tears: 'assets/images/ghost_red_tears.jpg',
+  ghost_scream: 'assets/images/ghost_scream.jpg',
+  ghost_reach: 'assets/images/ghost_reach.jpg',
+  ghost_mirror: 'assets/images/ghost_mirror.jpg',
+  ghost_shadow: 'assets/images/ghost_shadow.jpg',
+  ghost_lady: 'assets/images/ghost_lady.jpg',
+  stairwell: 'assets/images/stairwell_bg.jpg',
+  horror_basement: 'assets/images/basement_bg.jpg',
+  corridor: 'assets/images/corridor_bg.jpg',
+  mirror_room: 'assets/images/mirror_room_bg.jpg',
+  ritual_room: 'assets/images/ritual_room_bg.jpg',
 };
 function loadImages(){
   for(const [key, path] of Object.entries(imagePaths)){
@@ -553,6 +579,8 @@ window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 function handleSceneClick(x, y){
   if(G.state !== 'playing') return;
   const sc = scenes[G.scene];
+  // Check iron door click (horror quest) - before NPC checks
+  if(checkIronDoorClick(x, y)) return;
   // Check NPC clicks
   for(const npc of sc.npcs){
     if(Math.abs(x - npc.x) < 35 && Math.abs(y - npc.y) < 35){
@@ -956,6 +984,89 @@ const scenes = {
     ],
     playerStart: {x:120, y:350},
   },
+  // === HORROR QUEST SCENES ===
+  stairwell: {
+    name: '阴暗楼梯井',
+    obstacles: [],
+    npcs: [],
+    objects: [
+      {id:'stairs_down', x:400, y:450, w:60, h:60, label:'↓ 继续', interact: function(){
+        startDialogue('旁白', '🪜', [
+          '螺旋楼梯不断向下延伸，越走越暗。',
+          '底部有一扇锈蚀的铁门，半开着。',
+        ], [
+          {text: '推开铁门', callback: function(){ transitionToScene('horror_basement'); }},
+          {text: '先不下去', callback: function(){}},
+        ]);
+      }},
+    ],
+    exits: [
+      {x:0,y:300,w:50,h:60,to:'community',label:'← 返回地面'},
+    ],
+    playerStart: {x:80, y:300},
+  },
+  horror_basement: {
+    name: '废弃地下室',
+    obstacles: [],
+    npcs: [],
+    objects: [
+      {id:'hb_chair', x:400, y:300, w:50, h:50, label:'椅子', interact: interactHorrorChair},
+      {id:'hb_boxes', x:150, y:400, w:50, h:50, label:'纸箱', interact: interactHorrorBoxes},
+      {id:'hb_corner', x:650, y:200, w:50, h:50, interact: interactHorrorCorner},
+      {id:'hb_doorA', x:100, y:150, w:50, h:60, label:'门A', interact: interactHorrorDoorA},
+      {id:'hb_doorB', x:380, y:120, w:50, h:60, label:'门B', interact: interactHorrorDoorB},
+      {id:'hb_doorC', x:660, y:150, w:50, h:60, label:'门C', interact: interactHorrorDoorC},
+    ],
+    exits: [
+      {x:0,y:300,w:50,h:60,to:'stairwell',label:'← 上楼'},
+    ],
+    playerStart: {x:80, y:300},
+  },
+  corridor: {
+    name: '积水走廊',
+    obstacles: [],
+    npcs: [],
+    objects: [
+      {id:'co_left_door', x:80, y:200, w:50, h:60, label:'左门', interact: interactCorridorLeftDoor},
+      {id:'co_mid_door', x:370, y:200, w:50, h:60, label:'中门', interact: interactCorridorMidDoor},
+      {id:'co_right_door', x:670, y:200, w:50, h:60, label:'右门', interact: interactCorridorRightDoor},
+      {id:'co_floor', x:400, y:450, w:60, h:50, interact: interactCorridorFloor},
+    ],
+    exits: [
+      {x:0,y:400,w:50,h:60,to:'horror_basement',label:'← 回地下室'},
+    ],
+    playerStart: {x:80, y:400},
+  },
+  mirror_room: {
+    name: '镜屋',
+    obstacles: [],
+    npcs: [],
+    objects: [
+      {id:'mr_mirror1', x:150, y:200, w:60, h:80, label:'镜1', interact: interactMirror1},
+      {id:'mr_mirror2', x:350, y:200, w:60, h:80, label:'镜2', interact: interactMirror2},
+      {id:'mr_mirror3', x:500, y:200, w:60, h:80, label:'镜3', interact: interactMirror3},
+      {id:'mr_mirror4', x:670, y:200, w:60, h:80, label:'镜4', interact: interactMirror4},
+    ],
+    exits: [
+      {x:0,y:400,w:50,h:60,to:'corridor',label:'← 回走廊'},
+    ],
+    playerStart: {x:80, y:400},
+  },
+  ritual_room: {
+    name: '仪式室',
+    obstacles: [],
+    npcs: [],
+    objects: [
+      {id:'rr_candleL', x:300, y:300, w:40, h:50, label:'左蜡烛', interact: function(){ interactCandle('left'); }},
+      {id:'rr_candleM', x:400, y:300, w:40, h:50, label:'中蜡烛', interact: function(){ interactCandle('middle'); }},
+      {id:'rr_candleR', x:500, y:300, w:40, h:50, label:'右蜡烛', interact: function(){ interactCandle('right'); }},
+      {id:'rr_hidden_door', x:680, y:300, w:50, h:60, label:'暗门', interact: interactRitualHiddenDoor},
+    ],
+    exits: [
+      {x:0,y:400,w:50,h:60,to:'corridor',label:'← 回走廊'},
+    ],
+    playerStart: {x:80, y:400},
+  },
 };
 
 // ============================================================
@@ -1256,6 +1367,11 @@ function drawSceneBg(ctx, sceneName){
       parking_b1: ['#555560','#444450'], parking_b2: ['#444450','#333340'],
       sm_mall: ['#d4c4b4','#c4b4a4'], supermarket: ['#e8e0d4','#d8d0c4'],
       beach: ['#f0dca0','#e0ca90'],
+      stairwell: ['#1a1a22','#0d0d12'],
+      horror_basement: ['#1e1e28','#12121a'],
+      corridor: ['#1a1e24','#0d1014'],
+      mirror_room: ['#1c1c24','#101018'],
+      ritual_room: ['#1e1818','#120c0c'],
     };
     const fc = fallbackColors[sceneName] || ['#999','#888'];
     const grad = ctx.createLinearGradient(0, 0, 0, CH);
@@ -1290,6 +1406,8 @@ function getTimeLabel(){
   return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
 }
 function drawNightOverlay(ctx){
+  // Skip night overlay for horror scenes (they have their own dark atmosphere)
+  if(isHorrorScene()) return;
   if(G.time >= 20 && G.time < 22){
     const t = (G.time - 20) / 2;
     ctx.fillStyle = `rgba(20,20,60,${t*0.2})`;
@@ -1320,7 +1438,7 @@ function startDialogue(name, avatar, lines, choices, callback){
   G.dlgCallback = callback;
   document.getElementById('dlgName').textContent = name;
   // AI portrait in dialogue
-  var portraitMap = {'老陈':'old_chen','门卫大爷':'gatekeeper','卡皮巴拉':'capybara','王阿姨':'wang_ayi','驿站老板':'station_owner','幼儿园老师':'teacher','商场保安':'guard','收银员':'cashier','快乐小狗':'puppy','犹豫小猫':'cat'};
+  var portraitMap = {'老陈':'old_chen','门卫大爷':'gatekeeper','卡皮巴拉':'capybara','王阿姨':'wang_ayi','驿站老板':'station_owner','幼儿园老师':'teacher','商场保安':'guard','收银员':'cashier','快乐小狗':'puppy','犹豫小猫':'cat','红':'ghost_red_tears','女鬼':'ghost_red_tears','暗影':'ghost_shadow','镜中人':'ghost_mirror'};
   var portraitKey = portraitMap[name];
   var dlgPortraitEl = document.getElementById('dlgPortrait');
   if(portraitKey && imgCache[portraitKey]){
@@ -1463,6 +1581,42 @@ function interactDogbed(){
 
 // --- Community ---
 function interactWang(){
+  // Horror quest trigger: after 23:00, click 3 times
+  if(G.time >= 23 && !G.flags.horrorEnded){
+    if(G.flags.horrorStarted){
+      // Already started horror quest
+      startDialogue('王阿姨', '👩', ['...']);
+      return;
+    }
+    G.flags.wangClickCount = (G.flags.wangClickCount || 0) + 1;
+    if(G.flags.wangClickCount === 1){
+      startDialogue('王阿姨', '👩', [
+        '你...怎么还没回去？',
+        '天黑了，这边不太安全...',
+      ]);
+    } else if(G.flags.wangClickCount === 2){
+      startDialogue('王阿姨', '👩', [
+        '...她...一直在等你...',
+        '...你不该来的...',
+      ]);
+    } else if(G.flags.wangClickCount >= 3){
+      // Trigger horror quest!
+      G.flags.horrorStarted = true;
+      // Flash white + show shadow ghost
+      horrorJumpScare('ghost_shadow', 300, function(){
+        startDialogue('旁白', '🔍', [
+          '画面一阵白光闪过——',
+          '王阿姨不见了。',
+          '地上掉落着一把旧铜钥匙，锈迹斑斑。',
+        ], null, function(){
+          G.flags.hasCopperKey = true;
+          // Add hidden iron door to garden scene
+          showToast('获得道具：旧铜钥匙');
+        });
+      });
+    }
+    return;
+  }
   if(G.questStage <= 1){
     startDialogue('王阿姨', '👩', [
       '哟，你是在找老陈家的快乐小狗啊？',
@@ -3364,6 +3518,15 @@ function checkCollision(x, y){
 // ============================================================
 function render(){
   ctx.clearRect(0, 0, CW, CH);
+  // Screen shake for horror jumpscares
+  var shakeApplied = false;
+  if(horrorScreenShake > 0){
+    var sx = (Math.random() - 0.5) * horrorScreenShake;
+    var sy = (Math.random() - 0.5) * horrorScreenShake;
+    ctx.save();
+    ctx.translate(sx, sy);
+    shakeApplied = true;
+  }
   // 以下所有绘制基于800x600坐标系（canvas内部分辨率固定800x600）
   drawSceneBg(ctx, G.scene);
 
@@ -3470,13 +3633,554 @@ function render(){
     ctx.textAlign = 'left';
   }
 
+  // Draw iron door in community (horror quest)
+  drawIronDoor(ctx);
+
   // Night overlay (drawn after hotspots so it tints everything)
   drawNightOverlay(ctx);
+
+  // Horror jumpscare flash overlay (on top of everything)
+  drawHorrorFlash(ctx);
+
+  // Restore screen shake transform
+  if(shakeApplied){
+    ctx.restore();
+  }
 }
 
 // ============================================================
 //  TITLE SCREEN BACKGROUND
 // ============================================================
+
+// ============================================================
+//  HORROR QUEST - 午夜诡影
+// ============================================================
+var horrorScareImages = ['ghost_scream','ghost_reach','ghost_shadow','ghost_mirror','ghost_lady'];
+var horrorScareIndex = 0;
+var horrorFlashTimer = 0;
+var horrorFlashImage = null;
+var horrorScreenShake = 0;
+
+function horrorJumpScare(imgKey, duration, callback){
+  horrorFlashImage = imgKey || horrorScareImages[horrorScareIndex % horrorScareImages.length];
+  horrorScareIndex++;
+  horrorFlashTimer = duration || 400;
+  horrorScreenShake = 15;
+  if(callback){
+    setTimeout(callback, duration + 100);
+  }
+}
+
+function horrorRandomScare(){
+  var img = horrorScareImages[horrorScareIndex % horrorScareImages.length];
+  horrorScareIndex++;
+  horrorFlashImage = img;
+  horrorFlashTimer = 350;
+  horrorScreenShake = 10;
+}
+
+function drawHorrorFlash(ctx){
+  if(horrorFlashTimer > 0){
+    var img = imgCache[horrorFlashImage];
+    if(img && img.complete){
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, horrorFlashTimer / 200);
+      ctx.drawImage(img, 0, 0, CW, CH);
+      ctx.restore();
+    } else {
+      // Fallback white flash
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.8, horrorFlashTimer / 200);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, CW, CH);
+      ctx.restore();
+    }
+    horrorFlashTimer -= 16;
+    if(horrorFlashTimer <= 0){
+      horrorFlashImage = null;
+    }
+  }
+  if(horrorScreenShake > 0){
+    horrorScreenShake -= 1;
+  }
+}
+
+// Check if current scene is a horror scene
+function isHorrorScene(){
+  return ['stairwell','horror_basement','corridor','mirror_room','ritual_room'].indexOf(G.scene) >= 0;
+}
+
+// --- Iron door in community (appears when has copper key) ---
+function checkIronDoorClick(x, y){
+  if(G.scene !== 'community' || !G.flags.hasCopperKey || G.flags.horrorEnded) return false;
+  // Iron door near flower bed
+  if(x > 640 && x < 700 && y > 350 && y < 420){
+    if(!G.flags.horrorStarted) return false;
+    startDialogue('旁白', '🚪', [
+      '花坛旁有一扇生锈的铁门，之前没注意到。',
+      '门上有一个锁孔，形状和旧铜钥匙吻合。',
+    ], [
+      {text: '用铜钥匙开门', callback: function(){
+        transitionToScene('stairwell');
+      }},
+      {text: '先不进去', callback: function(){}},
+    ]);
+    return true;
+  }
+  return false;
+}
+
+// Draw iron door in community when has copper key
+function drawIronDoor(ctx){
+  if(G.scene === 'community' && G.flags.hasCopperKey && !G.flags.horrorEnded && G.flags.horrorStarted){
+    // Draw a dark iron door
+    ctx.fillStyle = 'rgba(40,35,30,0.8)';
+    ctx.fillRect(640, 350, 60, 70);
+    ctx.strokeStyle = 'rgba(100,80,60,0.6)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(640, 350, 60, 70);
+    // Keyhole glow
+    var pulse = 3 + Math.sin(Date.now()/300)*1;
+    ctx.fillStyle = 'rgba(255,217,102,0.3)';
+    ctx.beginPath(); ctx.arc(670, 385, pulse+2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,217,102,0.7)';
+    ctx.beginPath(); ctx.arc(670, 385, pulse, 0, Math.PI*2); ctx.fill();
+    // Label
+    ctx.fillStyle = 'rgba(217,119,87,0.85)';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('铁门', 670, 435);
+    ctx.textAlign = 'left';
+  }
+}
+
+// --- Basement: Chair (diary) ---
+function interactHorrorChair(){
+  if(!G.flags.hasDiary){
+    startDialogue('旁白', '📖', [
+      '一把孤零零的木椅，上面放着一本泛黄的日记。',
+    ], [
+      {text: '翻开日记', callback: function(){
+        G.flags.hasDiary = true;
+        G.flags.diaryRead = true;
+        showDiary();
+      }},
+      {text: '先不看', callback: function(){}},
+    ]);
+  } else {
+    startDialogue('旁白', '📖', ['椅子上什么也没有了。']);
+  }
+}
+
+function showDiary(){
+  startDialogue('日记', '📔', [
+    '"她是这栋楼第三个消失的人了...没有人报警...没有人记得..."',
+    '"镜子...镜子是不对的...不要看镜子里的自己...但她会在镜中等待..."',
+    '"三个门...只有没有痕迹的那扇才是活路...有痕迹的都是死路..."',
+    '"祭坛上的蜡烛...点燃左边和右边...中间不能点...中间是她的..."',
+    '"她的名字...我忘了她的名字...好像叫...红...红色的红..."',
+    '"如果你看到她...不要跑...不要回头...跟她说话...她会告诉你遗骸在哪..."',
+  ], null, function(){
+    showToast('日记内容已记录');
+  });
+}
+
+// --- Basement: Boxes (iron wire) ---
+function interactHorrorBoxes(){
+  if(!G.flags.hasIronWire){
+    startDialogue('旁白', '📦', [
+      '一堆破旧的纸箱，搬开后发现一根生锈的铁丝。',
+    ], [
+      {text: '拿走铁丝', callback: function(){
+        G.flags.hasIronWire = true;
+        showToast('获得道具：生锈铁丝');
+      }},
+      {text: '不理会', callback: function(){}},
+    ]);
+  } else {
+    startDialogue('旁白', '📦', ['纸箱后面什么也没有了。']);
+  }
+}
+
+// --- Basement: Corner (photo fragment) ---
+function interactHorrorCorner(){
+  if(G.flags.photoFragments < 1){
+    G.flags.photoFragments++;
+    horrorRandomScare();
+    startDialogue('旁白', '📷', [
+      '黑暗的角落里，有一张碎裂的照片碎片。',
+      '捡起来的瞬间，眼前闪过一个模糊的影子——',
+    ], null, function(){
+      showToast('获得道具：照片碎片 (' + G.flags.photoFragments + '/4)');
+    });
+  } else {
+    startDialogue('旁白', '🔍', ['角落里空空如也。']);
+  }
+}
+
+// --- Basement: Door A (locked, needs iron wire) ---
+function interactHorrorDoorA(){
+  if(G.flags.hasIronWire){
+    startDialogue('旁白', '🔓', [
+      '用铁丝捅了捅锁眼，"咔嗒"一声，门开了。',
+    ], [
+      {text: '进入走廊', callback: function(){ transitionToScene('corridor'); }},
+      {text: '先不进去', callback: function(){}},
+    ]);
+  } else {
+    startDialogue('旁白', '🚪', ['门锁着，锁眼生锈。也许需要什么东西来开锁。']);
+  }
+}
+
+// --- Basement: Door B (trap) ---
+function interactHorrorDoorB(){
+  horrorJumpScare('ghost_scream', 400);
+  startDialogue('旁白', '😱', [
+    '门虚掩着，刚推开一条缝——',
+    '一张扭曲的脸猛地凑到眼前！',
+    '你猛地后退，门"砰"地关上了。',
+  ]);
+}
+
+// --- Basement: Door C (sealed, has clue) ---
+function interactHorrorDoorC(){
+  startDialogue('旁白', '🚪', [
+    '门完全封死了，打不开。',
+    '但墙上有人用指甲刻了一行字：',
+    '"她在镜中等待"',
+  ]);
+}
+
+// --- Corridor: Left door (dead end) ---
+function interactCorridorLeftDoor(){
+  horrorJumpScare('ghost_reach', 350);
+  startDialogue('旁白', '🖐️', [
+    '推开门，是一条死胡同。',
+    '突然，一只苍白的手从黑暗中伸出来——',
+    '你转身跑了回去。',
+  ]);
+}
+
+// --- Corridor: Middle door (correct path) ---
+function interactCorridorMidDoor(){
+  startDialogue('旁白', '🚪', [
+    '这扇门没有任何痕迹，看起来很普通。',
+    '推开门，里面是一间满是镜子的房间。',
+  ], [
+    {text: '进入镜屋', callback: function(){ transitionToScene('mirror_room'); }},
+    {text: '先不进去', callback: function(){}},
+  ]);
+}
+
+// --- Corridor: Right door (ritual room, early entry) ---
+function interactCorridorRightDoor(){
+  startDialogue('旁白', '🚪', [
+    '门上有暗红色的污渍。',
+    '里面是一间昏暗的房间，地上画着奇怪的符号。',
+  ], [
+    {text: '进入仪式室', callback: function(){ transitionToScene('ritual_room'); }},
+    {text: '先不进去', callback: function(){}},
+  ]);
+}
+
+// --- Corridor: Floor (hidden photo fragment) ---
+function interactCorridorFloor(){
+  if(G.flags.photoFragments < 2){
+    G.flags.photoFragments++;
+    startDialogue('旁白', '📷', [
+      '积水处的地砖松动了，翻开发现下面藏着一张照片碎片。',
+    ], null, function(){
+      showToast('获得道具：照片碎片 (' + G.flags.photoFragments + '/4)');
+    });
+  } else {
+    startDialogue('旁白', '💧', ['地上的积水倒映着天花板，什么也没有。']);
+  }
+}
+
+// --- Mirror Room: Mirror 1 (scare) ---
+function interactMirror1(){
+  G.flags.mirror1Seen = true;
+  horrorJumpScare('ghost_mirror', 400);
+  startDialogue('旁白', '🪞', [
+    '镜子里映出一个女人的脸——',
+    '她猛地睁开眼，嘴角的红色液体缓缓流下——',
+    '镜子碎裂了！',
+  ]);
+}
+
+// --- Mirror Room: Mirror 2 (safe, no reward) ---
+function interactMirror2(){
+  startDialogue('旁白', '🪞', [
+    '镜子里只有你自己的倒影。',
+    '......好像没什么特别的。',
+  ]);
+}
+
+// --- Mirror Room: Mirror 3 (wait for reward) ---
+var mirror3Waited = false;
+function interactMirror3(){
+  if(!mirror3Waited){
+    startDialogue('旁白', '🪞', [
+      '镜子里有一个暗色的轮廓，若隐若现。',
+      '似乎在等待着什么......',
+    ], [
+      {text: '静静等待', callback: function(){
+        mirror3Waited = true;
+        horrorJumpScare('ghost_shadow', 300);
+        if(G.flags.photoFragments < 3){
+          G.flags.photoFragments++;
+          startDialogue('旁白', '📷', [
+            '镜面突然裂开，一张照片碎片从裂缝中掉了出来。',
+          ], null, function(){
+            showToast('获得道具：照片碎片 (' + G.flags.photoFragments + '/4)');
+          });
+        } else {
+          startDialogue('旁白', '🪞', ['镜子碎了，什么也没有。']);
+        }
+      }},
+      {text: '走开', callback: function(){}},
+    ]);
+  } else {
+    startDialogue('旁白', '🪞', ['碎裂的镜子，什么也没有了。']);
+  }
+}
+
+// --- Mirror Room: Mirror 4 (altar key) ---
+function interactMirror4(){
+  if(!G.flags.hasAltarKey){
+    startDialogue('旁白', '🪞', [
+      '这面镜子已经碎了，没有倒影。',
+      '碎片后面藏着一把奇特的钥匙。',
+    ], [
+      {text: '拿走钥匙', callback: function(){
+        G.flags.hasAltarKey = true;
+        showToast('获得道具：祭坛钥匙');
+      }},
+      {text: '不理会', callback: function(){}},
+    ]);
+  } else {
+    startDialogue('旁白', '🪞', ['碎镜后面空空如也。']);
+  }
+}
+
+// --- Ritual Room: Candles ---
+var candleStates = {left:false, middle:false, right:false};
+var altarOpened = false;
+
+function interactCandle(pos){
+  if(altarOpened){
+    startDialogue('旁白', '🕯️', ['蜡烛已经熄灭了。']);
+    return;
+  }
+  candleStates[pos] = !candleStates[pos];
+  if(pos === 'middle' && candleStates.middle){
+    // Punishment: middle candle lit
+    G.flags.middleCandleLit = true;
+    candleStates = {left:false, middle:false, right:false};
+    horrorJumpScare('ghost_red_tears', 800);
+    startDialogue('红', '👁️', [
+      '......你不该点那一根。',
+      '一阵刺骨的寒意穿过全身——',
+      '所有蜡烛熄灭了。你被推回了楼梯井。',
+    ], null, function(){
+      transitionToScene('stairwell');
+    });
+    return;
+  }
+  // Check if left and right are lit, middle is not
+  if(candleStates.left && candleStates.right && !candleStates.middle){
+    altarOpened = true;
+    G.flags.ghostNameKnown = true;
+    startDialogue('旁白', '🕯️', [
+      '左右两根蜡烛燃起幽蓝的火焰。',
+      '祭坛发出低沉的轰鸣声，暗格缓缓打开——',
+      '里面放着最后一张照片碎片。',
+      '墙上浮现出一个红色的字：「红」',
+    ], [
+      {text: '拿走碎片，查看暗门', callback: function(){
+        if(G.flags.photoFragments < 4) G.flags.photoFragments++;
+        showToast('获得道具：照片碎片 (' + G.flags.photoFragments + '/4)');
+        showToast('墙上浮现名字：红');
+        startDialogue('旁白', '🚪', [
+          '祭坛旁的暗门缓缓打开了。',
+          '门后传来低沉的呼吸声......',
+        ], [
+          {text: '走进暗门', callback: function(){ startHorrorFinalEncounter(); }},
+          {text: '先不进去', callback: function(){}},
+        ]);
+      }},
+    ]);
+  } else {
+    var lit = [];
+    if(candleStates.left) lit.push('左');
+    if(candleStates.middle) lit.push('中');
+    if(candleStates.right) lit.push('右');
+    startDialogue('旁白', '🕯️', [
+      '你' + (candleStates[pos] ? '点燃' : '熄灭') + '了' + (pos==='left'?'左':pos==='middle'?'中':'右') + '边的蜡烛。',
+      '当前点燃：' + (lit.length > 0 ? lit.join('、') : '无'),
+    ]);
+  }
+}
+
+// --- Ritual Room: Hidden door ---
+function interactRitualHiddenDoor(){
+  if(altarOpened){
+    startDialogue('旁白', '🚪', [
+      '暗门已经打开，里面传来低沉的呼吸声。',
+    ], [
+      {text: '走进暗门', callback: function(){ startHorrorFinalEncounter(); }},
+      {text: '先不进去', callback: function(){}},
+    ]);
+  } else {
+    startDialogue('旁白', '🚪', ['暗门紧闭，似乎需要某种仪式才能打开。']);
+  }
+}
+
+// --- Final Encounter ---
+function startHorrorFinalEncounter(){
+  horrorJumpScare('ghost_red_tears', 600);
+  startDialogue('红', '👁️', [
+    '......你来了。',
+    '你是第一个走到这里的人。',
+    '你知道我的名字吗？',
+  ], [
+    {text: '红', callback: function(){
+      // Correct answer
+      startDialogue('红', '👁️', [
+        '......你竟然知道。',
+        '很久没有人叫过这个名字了。',
+        '你要帮我......还是像其他人一样逃走？',
+      ], [
+        {text: '我帮你', callback: function(){
+          // Continue to question 3
+          horrorFinalQ3();
+        }},
+        {text: '我要走了', callback: function(){
+          // Run away ending
+          horrorEnding('escape');
+        }},
+        {text: '（沉默）', callback: function(){
+          // Special branch
+          if(G.flags.mirror1Seen){
+            horrorEnding('mirror');
+          } else {
+            startDialogue('红', '👁️', [
+              '......为什么不说话？',
+              '算了，你选吧。',
+            ], [
+              {text: '我帮你', callback: function(){ horrorFinalQ3(); }},
+              {text: '我要走了', callback: function(){ horrorEnding('escape'); }},
+            ]);
+          }
+        }},
+      ]);
+    }},
+    {text: '梅', callback: function(){
+      horrorJumpScare('ghost_scream', 400);
+      startDialogue('红', '👁️', [
+        '......不是这个名字。',
+        '你让我失望了。',
+      ], null, function(){
+        transitionToScene('ritual_room');
+      });
+    }},
+    {text: '不知道', callback: function(){
+      horrorJumpScare('ghost_scream', 400);
+      startDialogue('红', '👁️', [
+        '......连我的名字都不知道。',
+        '走吧。',
+      ], null, function(){
+        transitionToScene('ritual_room');
+      });
+    }},
+  ]);
+}
+
+function horrorFinalQ3(){
+  startDialogue('红', '👁️', [
+    '......谢谢你。',
+    '最后一件事。',
+    '我的遗骸......在哪里？',
+  ], [
+    {text: '地下室', callback: function(){ horrorEnding('seal'); }},
+    {text: '花坛下', callback: function(){ horrorEnding('seal'); }},
+    {text: '祭坛下', callback: function(){ horrorEnding('good'); }},
+  ]);
+}
+
+// --- Horror Endings ---
+function horrorEnding(type){
+  G.flags.horrorEnded = true;
+  if(type === 'good'){
+    // Good ending: salvation
+    horrorJumpScare('ghost_red_tears', 500);
+    setTimeout(function(){
+      startDialogue('红', '👁️', [
+        '......祭坛下。',
+        '是的，就在那里。',
+        '谢谢你......终于可以安息了。',
+      ], null, function(){
+        showHorrorEnding('good');
+      });
+    }, 600);
+  } else if(type === 'seal'){
+    // Seal ending
+    startDialogue('红', '👁️', [
+      '......不是那里。',
+      '看来你也帮不了我。',
+      '烧掉那些照片吧，忘掉一切。',
+    ], null, function(){
+      showHorrorEnding('seal');
+    });
+  } else if(type === 'escape'){
+    // Escape ending
+    horrorJumpScare('ghost_reach', 300);
+    setTimeout(function(){
+      horrorJumpScare('ghost_scream', 300);
+      setTimeout(function(){
+        showHorrorEnding('escape');
+      }, 400);
+    }, 400);
+  } else if(type === 'mirror'){
+    // Mirror ending
+    horrorJumpScare('ghost_mirror', 600);
+    setTimeout(function(){
+      showHorrorEnding('mirror');
+    }, 800);
+  }
+  // Secret assimilation ending: only overrides good/seal endings (player tried to help but was corrupted)
+  if(G.flags.middleCandleLit && (type === 'good' || type === 'seal')){
+    setTimeout(function(){
+      showHorrorEnding('assimilation');
+    }, 3500);
+  }
+}
+
+function showHorrorEnding(type){
+  G.state = 'ending';
+  var screen = document.getElementById('endingScreen');
+  var title = '', text = '';
+  if(type === 'good'){
+    title = '超度';
+    text = '你在祭坛下找到了她的遗骸。<br>女鬼的灵魂化作光点，缓缓升空消散。<br>「谢谢......再见。」<br><br>获得道具：平安符';
+  } else if(type === 'seal'){
+    title = '封印';
+    text = '你烧毁了所有照片碎片。<br>记忆被封印，地下室的入口消失了。<br>一切仿佛从未发生过。<br><br>获得道具：遗忘之戒';
+  } else if(type === 'escape'){
+    title = '逃跑';
+    text = '你拼命奔跑，身后不断闪过苍白的影子。<br>突然——<br>你惊醒了，发现自己躺在天成花园的长椅上。<br>天已大亮，一切像是一场噩梦。<br>但你知道，那个世界再也无法回去了。';
+  } else if(type === 'mirror'){
+    title = '镜中';
+    text = '镜子裂开了。<br>你低头看自己的手——透明的。<br>你成为了镜中的新住民。<br>等待下一个访客的到来......';
+  } else if(type === 'assimilation'){
+    title = '同化';
+    text = '她的力量已经侵入你的身体。<br>「终于......有了新的容器。」<br>你的意识渐渐模糊，<br>取而代之的，是一双流着红色泪水的眼睛。';
+  }
+  document.getElementById('endingTitle').textContent = title;
+  document.getElementById('endingText').innerHTML = text;
+  screen.classList.add('show');
+}
+
 // ============================================================
 //  START
 // ============================================================
