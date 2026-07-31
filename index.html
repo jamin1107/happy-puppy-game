@@ -126,7 +126,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div class="title-tip">键盘 WASD/方向键移动 · 空格键交互 · 手机触屏操控</div>
+    <div class="title-tip">点击场景中的角色和发光点交互 · 点击箭头切换场景</div>
   </div>
 </div>
 
@@ -352,11 +352,19 @@ const imagePaths = {
   old_chen: 'assets/images/old_chen.jpg',
   capybara: 'assets/images/capybara.jpg',
   gatekeeper: 'assets/images/gatekeeper.jpg',
+  wang_ayi: 'assets/images/wang_ayi.jpg',
+  station_owner: 'assets/images/station_owner.jpg',
+  teacher: 'assets/images/teacher.jpg',
+  guard: 'assets/images/guard.jpg',
+  cashier: 'assets/images/cashier.jpg',
 };
 function loadImages(){
   for(const [key, path] of Object.entries(imagePaths)){
     const img = new Image();
-    img.onload = () => { imgCache[key] = img; };
+    img.onload = () => {
+      imgCache[key] = img;
+      if(key === 'cover' && typeof drawTitleBg === 'function') drawTitleBg();
+    };
     img.onerror = () => { console.warn('Failed to load: ' + path); };
     img.src = path;
   }
@@ -855,97 +863,22 @@ function drawOldChen(ctx, x, y){
 
 // --- 王阿姨 ---
 function drawWangAyi(ctx, x, y){
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI*2); ctx.fill();
-  // body - red
-  ctx.fillStyle = '#c45a5a';
-  ctx.beginPath(); ctx.roundRect(-10, -3, 20, 24, 4); ctx.fill();
-  // head
-  ctx.fillStyle = '#f4d4b0';
-  ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI*2); ctx.fill();
-  // hair
-  ctx.fillStyle = '#5a3a2a';
-  ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI, 0); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(-8, -16, 4, 8, 2); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(4, -16, 4, 8, 2); ctx.fill();
-  // eyes
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(-3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  // mouth - smiling
-  ctx.strokeStyle = '#8b6b4b';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(0, -9, 2.5, Math.PI*1.2, Math.PI*1.8); ctx.stroke();
-  ctx.restore();
+  drawNpcBillboard(ctx, 'wang_ayi', x, y, 48);
 }
 
 // --- 驿站老板 ---
 function drawStationOwner(ctx, x, y){
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#5a7a9a';
-  ctx.beginPath(); ctx.roundRect(-10, -3, 20, 24, 4); ctx.fill();
-  ctx.fillStyle = '#f4d4b0';
-  ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#3a3a3a';
-  ctx.beginPath(); ctx.arc(0, -17, 8, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(-3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#8b6b4b'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-2, -9); ctx.lineTo(2, -9); ctx.stroke();
-  ctx.restore();
+  drawNpcBillboard(ctx, 'station_owner', x, y, 48);
 }
 
 // --- 幼儿园老师 ---
 function drawTeacher(ctx, x, y){
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#e87a9a';
-  ctx.beginPath(); ctx.roundRect(-10, -3, 20, 24, 4); ctx.fill();
-  ctx.fillStyle = '#f4d4b0';
-  ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI*2); ctx.fill();
-  // hair - ponytail
-  ctx.fillStyle = '#4a3a2a';
-  ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI, 0); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(8, -10, 4, 7, 0.3, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(-3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#8b6b4b'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(0, -9, 2.5, Math.PI*1.2, Math.PI*1.8); ctx.stroke();
-  ctx.restore();
+  drawNpcBillboard(ctx, 'teacher', x, y, 48);
 }
 
 // --- 商场保安 ---
 function drawGuard(ctx, x, y){
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#3a4a5a';
-  ctx.beginPath(); ctx.roundRect(-11, -3, 22, 24, 4); ctx.fill();
-  // badge
-  ctx.fillStyle = '#ffd966';
-  ctx.beginPath(); ctx.arc(-6, 3, 2.5, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#f4d4b0';
-  ctx.beginPath(); ctx.arc(0, -14, 10, 0, Math.PI*2); ctx.fill();
-  // cap
-  ctx.fillStyle = '#2a3a4a';
-  ctx.beginPath(); ctx.ellipse(0, -19, 11, 4, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(-9, -22, 18, 5, 2); ctx.fill();
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(-4, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(4, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#8b6b4b'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-2, -8); ctx.lineTo(2, -8); ctx.stroke();
-  ctx.restore();
+  drawNpcBillboard(ctx, 'guard', x, y, 48);
 }
 
 // --- 门卫大爷 ---
@@ -955,31 +888,7 @@ function drawGatekeeper(ctx, x, y){
 
 // --- 超市收银员 ---
 function drawCashier(ctx, x, y){
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI*2); ctx.fill();
-  // body - green apron
-  ctx.fillStyle = '#5a8a5a';
-  ctx.beginPath(); ctx.roundRect(-10, -3, 20, 24, 4); ctx.fill();
-  ctx.fillStyle = '#7ab87a';
-  ctx.beginPath(); ctx.roundRect(-8, 0, 16, 18, 2); ctx.fill();
-  // head
-  ctx.fillStyle = '#f4d4b0';
-  ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI*2); ctx.fill();
-  // hair
-  ctx.fillStyle = '#8b6b4b';
-  ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI, 0); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(-8, -16, 4, 6, 2); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(4, -16, 4, 6, 2); ctx.fill();
-  // eyes
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(-3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(3, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  // smiling mouth
-  ctx.strokeStyle = '#8b6b4b'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(0, -9, 2.5, Math.PI*1.2, Math.PI*1.8); ctx.stroke();
-  ctx.restore();
+  drawNpcBillboard(ctx, 'cashier', x, y, 48);
 }
 
 // --- 卡皮巴拉 (Capybara) - large, zen, sitting on beach ---
@@ -1250,7 +1159,7 @@ function startDialogue(name, avatar, lines, choices, callback){
   G.dlgCallback = callback;
   document.getElementById('dlgName').textContent = name;
   // AI portrait in dialogue
-  var portraitMap = {'老陈':'old_chen','门卫大爷':'gatekeeper','卡皮巴拉':'capybara'};
+  var portraitMap = {'老陈':'old_chen','门卫大爷':'gatekeeper','卡皮巴拉':'capybara','王阿姨':'wang_ayi','驿站老板':'station_owner','幼儿园老师':'teacher','商场保安':'guard','收银员':'cashier','快乐小狗':'puppy','犹豫小猫':'cat'};
   var portraitKey = portraitMap[name];
   var dlgAvatarEl = document.getElementById('dlgAvatar');
   if(portraitKey && imgCache[portraitKey]){
