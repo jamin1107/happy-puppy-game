@@ -8,9 +8,9 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif;touch-action:none;user-select:none;}
-#gameWrapper{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a1a2e 0%,#0d0d1a 100%);}
-#gameCanvas{display:block;box-shadow:0 0 60px rgba(0,0,0,0.6);border-radius:2px;}
-#uiLayer{position:absolute;pointer-events:none;transform-origin:top left;}
+#gameWrapper{position:fixed;inset:0;background:#0d0d1a;}
+#gameCanvas{display:block;box-shadow:none;border-radius:0;}
+#uiLayer{position:fixed;inset:0;pointer-events:none;transform-origin:top left;}
 .touch-btn{pointer-events:auto;}
 
 /* HUD */
@@ -279,19 +279,22 @@ canvas.height = CH;
 // ---- Resize ----
 function resizeCanvas(){
   const ww = window.innerWidth, wh = window.innerHeight;
-  const scale = Math.min(ww / CW, wh / CH);
-  const cw = CW * scale, ch = CH * scale;
-  canvas.style.width = cw + 'px';
-  canvas.style.height = ch + 'px';
-  // Position UI layer to overlap canvas exactly
+  // Fill the entire viewport - stretch to fit (no black bars)
+  canvas.style.width = ww + 'px';
+  canvas.style.height = wh + 'px';
+  canvas.style.position = 'fixed';
+  canvas.style.left = '0px';
+  canvas.style.top = '0px';
+  // UI layer fills viewport too, using non-uniform scale
   const ui = document.getElementById('uiLayer');
-  ui.style.width = cw + 'px';
-  ui.style.height = ch + 'px';
-  ui.style.left = ((ww - cw) / 2) + 'px';
-  ui.style.top = ((wh - ch) / 2) + 'px';
-  ui.style.transform = 'scale(' + scale + ')';
+  ui.style.width = ww + 'px';
+  ui.style.height = wh + 'px';
+  ui.style.left = '0px';
+  ui.style.top = '0px';
+  ui.style.transform = 'none';
 }
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', function(){ setTimeout(resizeCanvas, 100); });
 resizeCanvas();
 
 // ============================================================
@@ -513,9 +516,10 @@ function handleSceneClick(x, y){
 // Canvas click for minigames and scene interactions
 canvas.addEventListener('click', function(e){
   var rect = canvas.getBoundingClientRect();
-  var scale = rect.width / CW;
-  var x = (e.clientX - rect.left) / scale;
-  var y = (e.clientY - rect.top) / scale;
+  var scaleX = rect.width / CW;
+  var scaleY = rect.height / CH;
+  var x = (e.clientX - rect.left) / scaleX;
+  var y = (e.clientY - rect.top) / scaleY;
   if(G.state === 'playing'){ handleSceneClick(x, y); return; }
   if(G.state !== 'minigame') return;
   miniGameCanvasClick(x, y);
@@ -525,9 +529,10 @@ canvas.addEventListener('touchend', function(e){
   e.preventDefault();
   var touch = e.changedTouches[0];
   var rect = canvas.getBoundingClientRect();
-  var scale = rect.width / CW;
-  var x = (touch.clientX - rect.left) / scale;
-  var y = (touch.clientY - rect.top) / scale;
+  var scaleX = rect.width / CW;
+  var scaleY = rect.height / CH;
+  var x = (touch.clientX - rect.left) / scaleX;
+  var y = (touch.clientY - rect.top) / scaleY;
   if(G.state === 'playing'){ handleSceneClick(x, y); return; }
   miniGameCanvasClick(x, y);
 });
