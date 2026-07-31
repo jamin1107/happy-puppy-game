@@ -28,15 +28,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 @keyframes bounce{from{transform:translateX(-50%) translateY(0);}to{transform:translateX(-50%) translateY(-4px);}}
 
 /* Dialogue box */
-#dialogueBox{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,rgba(253,246,238,0.98),rgba(255,255,255,0.98));border-top:3px solid #d97757;padding:20px 24px calc(24px + env(safe-area-inset-bottom, 0px));display:none;z-index:20;box-shadow:0 -8px 32px rgba(0,0,0,0.2);pointer-events:auto;cursor:pointer;touch-action:manipulation;max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-#dialogueBox.show{display:block;}
-.dlg-name{font-size:16px;font-weight:700;color:#d97757;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
-.dlg-name .avatar{width:32px;height:32px;border-radius:50%;background:#e8916f;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.dlg-text{font-size:15px;color:#3d2914;line-height:1.8;min-height:40px;}
-.dlg-choices{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
+#dialogueBox{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,rgba(253,246,238,0.98),rgba(255,255,255,0.98));border-top:3px solid #d97757;padding:16px 20px calc(20px + env(safe-area-inset-bottom, 0px));display:none;z-index:20;box-shadow:0 -8px 32px rgba(0,0,0,0.2);pointer-events:auto;cursor:pointer;touch-action:manipulation;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#dialogueBox.show{display:flex;align-items:flex-end;gap:14px;}
+.dlg-portrait{width:100px;height:100px;min-width:100px;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#f0e0d0,#e0d0c0);display:flex;align-items:center;justify-content:center;font-size:48px;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:2px solid rgba(217,119,87,0.3);}
+.dlg-portrait img{width:100%;height:100%;object-fit:cover;}
+.dlg-content{flex:1;min-width:0;}
+.dlg-name{font-size:16px;font-weight:700;color:#d97757;margin-bottom:6px;}
+.dlg-text{font-size:15px;color:#3d2914;line-height:1.7;min-height:40px;}
+.dlg-choices{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
 .dlg-choice{background:rgba(217,119,87,0.1);border:1.5px solid rgba(217,119,87,0.3);border-radius:10px;padding:12px 16px;font-size:14px;color:#3d2914;cursor:pointer;pointer-events:auto;transition:all 0.15s;font-family:inherit;touch-action:manipulation;}
 .dlg-choice:hover,.dlg-choice.selected,.dlg-choice:active{background:rgba(217,119,87,0.2);border-color:#d97757;}
-.dlg-next{position:absolute;bottom:12px;right:20px;font-size:12px;color:#8b7355;animation:blink 1s ease infinite;pointer-events:none;}
+.dlg-next{margin-top:8px;font-size:12px;color:#8b7355;animation:blink 1s ease infinite;pointer-events:none;text-align:right;}
 @keyframes blink{50%{opacity:0.3;}}
 
 /* Quest log */
@@ -119,9 +121,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 .hud-badge .icon{font-size:14px;}
 .hud-time{font-size:13px;padding:5px 10px;}
 .dlg-name{font-size:14px;}
-.dlg-name .avatar{width:28px;height:28px;font-size:16px;}
-.dlg-text{font-size:13px;line-height:1.7;}
+.dlg-text{font-size:13px;line-height:1.6;}
 .dlg-choice{font-size:13px;padding:10px 14px;}
+.dlg-portrait{width:80px;height:80px;min-width:80px;font-size:36px;}
 .skip-btn{padding:5px 10px;font-size:11px;}
 .inv-item{font-size:11px;padding:3px 8px;}
 #dialogueBox{padding:14px 16px calc(18px + env(safe-area-inset-bottom, 0px));max-height:45vh;}
@@ -220,10 +222,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Dialogue -->
 <div id="dialogueBox">
-  <div class="dlg-name"><span class="avatar" id="dlgAvatar">👤</span><span id="dlgName">NPC</span></div>
-  <div class="dlg-text" id="dlgText"></div>
-  <div class="dlg-choices" id="dlgChoices"></div>
-  <div class="dlg-next" id="dlgNext">▼ 点击继续</div>
+  <div class="dlg-portrait" id="dlgPortrait"></div>
+  <div class="dlg-content">
+    <div class="dlg-name"><span id="dlgName">NPC</span></div>
+    <div class="dlg-text" id="dlgText"></div>
+    <div class="dlg-choices" id="dlgChoices"></div>
+    <div class="dlg-next" id="dlgNext">▼ 点击继续</div>
+  </div>
 </div>
 
 <!-- Quest log -->
@@ -646,38 +651,17 @@ window.addEventListener('mouseup', handleJoyEnd);
 
 document.getElementById('interactBtn').addEventListener('click', tryInteract);
 
-// 统一tap事件 - 同时支持touchend和click，防止手机端300ms延迟和重复触发
-// handler返回false表示不阻止默认行为（让子元素的click事件正常触发）
+// 统一tap事件 - 用click即可，touch-action:manipulation已消除300ms延迟
 function addTapListener(el, handler){
-  var touched = false;
-  el.addEventListener('touchend', function(e){
-    touched = true;
-    var result = handler.call(el, e);
-    if(result !== false){
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setTimeout(function(){ touched = false; }, 400);
-  }, {passive: false});
   el.addEventListener('click', function(e){
-    if(touched) return;
     handler.call(el, e);
   });
 }
 
-// 给动态创建的按钮绑定tap事件（用于对话框内的选择按钮）
+// 给动态创建的按钮绑定tap事件
 function bindChoiceTap(btn, handler){
-  var touched = false;
-  btn.addEventListener('touchend', function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    touched = true;
-    handler();
-    setTimeout(function(){ touched = false; }, 400);
-  }, {passive: false});
   btn.addEventListener('click', function(e){
     e.stopPropagation();
-    if(touched) return;
     handler();
   });
 }
@@ -714,9 +698,9 @@ document.querySelectorAll('.skip-btn').forEach(function(btn){
   });
 });
 
-// Dialogue tap to advance (支持手机端touchend + PC端click)
+// Dialogue click to advance
 addTapListener(document.getElementById('dialogueBox'), function(e){
-  if(e.target && e.target.classList && e.target.classList.contains('dlg-choice')) return false;
+  if(e.target && e.target.classList && e.target.classList.contains('dlg-choice')) return;
   advanceDialogue();
 });
 
@@ -908,7 +892,7 @@ const scenes = {
     playerStart: {x:80, y:300},
   },
   supermarket: {
-    name: '好邻居超市',
+    name: '沃尔玛',
     obstacles: [
       {x:0,y:0,w:CW,h:30},
       {x:0,y:CH-30,w:CW,h:30},
@@ -1330,11 +1314,11 @@ function startDialogue(name, avatar, lines, choices, callback){
   // AI portrait in dialogue
   var portraitMap = {'老陈':'old_chen','门卫大爷':'gatekeeper','卡皮巴拉':'capybara','王阿姨':'wang_ayi','驿站老板':'station_owner','幼儿园老师':'teacher','商场保安':'guard','收银员':'cashier','快乐小狗':'puppy','犹豫小猫':'cat'};
   var portraitKey = portraitMap[name];
-  var dlgAvatarEl = document.getElementById('dlgAvatar');
+  var dlgPortraitEl = document.getElementById('dlgPortrait');
   if(portraitKey && imgCache[portraitKey]){
-    dlgAvatarEl.innerHTML = '<img src="'+imagePaths[portraitKey]+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">';
+    dlgPortraitEl.innerHTML = '<img src="'+imagePaths[portraitKey]+'" alt="'+name+'">';
   } else {
-    dlgAvatarEl.textContent = avatar;
+    dlgPortraitEl.textContent = avatar;
   }
   document.getElementById('dialogueBox').classList.add('show');
   document.getElementById('dlgNext').style.display = choices ? 'none' : 'block';
@@ -1840,7 +1824,7 @@ function doBoxPuzzle(){
   G.dlgIndex = 0;
   G.dlgChoices = null;
   document.getElementById('dlgName').textContent = '推箱子谜题';
-  document.getElementById('dlgAvatar').textContent = '📦';
+  document.getElementById('dlgPortrait').textContent = '📦';
   document.getElementById('dlgNext').style.display = 'none';
   renderPuzzleChoices();
 }
@@ -1945,7 +1929,7 @@ function renderPuzzleChoices(){
 // --- Supermarket: Cashier ---
 function interactCashier(){
   startDialogue('收银员', '🧑‍💼', [
-    '欢迎光临好邻居超市！需要什么尽管挑。',
+    '欢迎光临沃尔玛！需要什么尽管挑。',
     '烟酒在左边货架，宠物用品在中间货架，拿好了过来结账就行。',
   ]);
 }
@@ -2072,7 +2056,7 @@ function interactGatekeeper(){
       // No cigarettes - no 荻花洲 content or buttons
       startDialogue('门卫大爷', '👴', [
         '回来了？烟呢？没烟可别想下去。',
-        '小区旁边有个好邻居超市，去那买包红梅来，我就让你过。',
+        '小区旁边有个沃尔玛，去那买包红梅来，我就让你过。',
       ]);
     }
   } else {
@@ -2395,7 +2379,7 @@ function tryPushShell(){
   G.dlgChoices = [];
   G.dlgCallback = null;
   document.getElementById('dlgName').textContent = '贝壳推阵';
-  document.getElementById('dlgAvatar').textContent = '🐚';
+  document.getElementById('dlgPortrait').textContent = '🐚';
   document.getElementById('dlgNext').style.display = 'none';
   var choicesDiv = document.getElementById('dlgChoices');
   choicesDiv.innerHTML = '';
@@ -3146,7 +3130,7 @@ const questSteps = [
   {id:'pawprints', text:'在小区寻找快乐小狗的踪迹', hint:'调查小区地上的爪印'},
   {id:'wang', text:'询问小区居民是否目击快乐小狗', hint:'和王阿姨聊聊'},
   {id:'kindergarten', text:'前往幼儿园调查', hint:'快乐小狗追蝴蝶去了幼儿园'},
-  {id:'supermarket', text:'去超市买烟贿赂门卫大爷', hint:'小区西侧好邻居超市，买包红梅烟', optional:false},
+  {id:'supermarket', text:'去超市买烟贿赂门卫大爷', hint:'小区西侧沃尔玛，买包红梅烟', optional:false},
   {id:'gatekeeper', text:'给门卫大爷送烟解锁车库', hint:'回幼儿园找门卫大爷，把烟给他'},
   {id:'parking', text:'进入地下车库追踪快乐小狗', hint:'从幼儿园东门进入地下车库B1'},
   {id:'beach', text:'（支线）开车去荻花洲寻找线索', hint:'B1层找到车，开车去海边查看爪印', optional:true},
