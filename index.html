@@ -162,7 +162,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Loading overlay -->
 <div id="loadingOverlay">
-  <div style="font-size:18px;font-weight:700;color:#ffd966;">快乐小狗寻回记</div>
+  <div style="font-size:18px;font-weight:700;color:#ffd966;">快乐小狗丢失案</div>
   <div id="loadingBarWrap"><div id="loadingBar"></div></div>
   <div id="loadingText">加载中...</div>
 </div>
@@ -310,17 +310,26 @@ canvas.height = CH;
 // canvas内部分辨率 = CSS尺寸 × DPR = 屏幕物理像素，实现1:1像素级清晰渲染
 var renderScale = 1;
 function resizeCanvas(){
-  const ww = window.innerWidth, wh = window.innerHeight;
+  // 使用 visualViewport 获取更准确的视口尺寸（iOS Safari 地址栏收缩时会变化）
+  var vv = window.visualViewport;
+  var ww = vv ? vv.width : window.innerWidth;
+  var wh = vv ? vv.height : window.innerHeight;
   var dpr = window.devicePixelRatio || 1;
   if(dpr > 3) dpr = 3;
+  // contain模式：canvas等比缩放居中，完整显示不变形不裁剪
   const scale = Math.min(ww / CW, wh / CH);
   const scaledW = CW * scale;
   const scaledH = CH * scale;
   const offsetX = (ww - scaledW) / 2;
   const offsetY = (wh - scaledH) / 2;
   // canvas内部分辨率精确匹配物理像素，1:1渲染无模糊
-  canvas.width = Math.round(scaledW * dpr);
-  canvas.height = Math.round(scaledH * dpr);
+  var cw = Math.round(scaledW * dpr);
+  var ch = Math.round(scaledH * dpr);
+  // 避免不必要的重设（重设canvas.width会清空内容并重置context）
+  if(canvas.width !== cw || canvas.height !== ch){
+    canvas.width = cw;
+    canvas.height = ch;
+  }
   canvas.style.width = scaledW + 'px';
   canvas.style.height = scaledH + 'px';
   canvas.style.position = 'fixed';
@@ -340,8 +349,15 @@ function resizeCanvas(){
   ui.style.transform = 'none';
 }
 window.addEventListener('resize', resizeCanvas);
-window.addEventListener('orientationchange', function(){ setTimeout(resizeCanvas, 100); });
+window.addEventListener('orientationchange', function(){ setTimeout(resizeCanvas, 200); });
+// iOS Safari: 监听 visualViewport 变化（地址栏收缩/展开）
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', resizeCanvas);
+}
 resizeCanvas();
+// 延迟再次调用，确保 iOS Safari 完成布局后尺寸正确
+setTimeout(resizeCanvas, 300);
+setTimeout(resizeCanvas, 1000);
 
 // 屏幕坐标转800x600游戏坐标（基于canvas的实际CSS位置）
 function screenToGame(clientX, clientY){
@@ -3407,6 +3423,9 @@ function actuallyStartGame(){
   document.getElementById('hud').style.display = 'flex';
   document.getElementById('timeSkipBar').style.display = 'flex';
   document.getElementById('inventoryBar').style.display = 'flex';
+  // 重新计算canvas尺寸（iOS Safari地址栏可能在标题页期间收缩）
+  resizeCanvas();
+  setTimeout(resizeCanvas, 200);
   G.state = 'playing';
   G.scene = 'community';
   document.getElementById('locationName').textContent = scenes.community.name;
