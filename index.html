@@ -310,12 +310,19 @@ canvas.height = CH;
 // 横屏/宽屏: contain等比缩放，完整显示不裁剪
 // canvas内部分辨率 = CSS尺寸 × DPR = 屏幕物理像素，实现1:1像素级清晰渲染
 var renderScale = 1;
+var dpr = window.devicePixelRatio || 1;
+// 辅助函数：确保字体在CSS层面不小于minCssPx，避免手机缩放后字体太小看不清
+function scaledFont(baseGamePx, minCssPx) {
+  var cssPx = baseGamePx * (renderScale / dpr);
+  if (cssPx < minCssPx) cssPx = minCssPx;
+  return Math.round(cssPx * dpr);
+}
 var canvasOffsetX = 0, canvasOffsetY = 0; // 游戏坐标偏移（fill模式下裁剪偏移）
 function resizeCanvas(){
   var vv = window.visualViewport;
   var ww = vv ? vv.width : window.innerWidth;
   var wh = vv ? vv.height : window.innerHeight;
-  var dpr = window.devicePixelRatio || 1;
+  dpr = window.devicePixelRatio || 1;
   if(dpr > 3) dpr = 3;
   
   var isPortrait = wh > ww; // 竖屏
@@ -3598,18 +3605,28 @@ function render(){
 
   const sc = scenes[G.scene];
 
+  // 物理像素字体大小 = 游戏坐标字体 × renderScale，确保文字1:1物理像素渲染不模糊
+  var fontScale = renderScale;
+
   // Draw ALL NPCs as clickable hotspots
   for(const npc of sc.npcs){
     npc.draw(ctx, npc.x, npc.y);
-    // Small name tag below NPC
+    // Name tag below NPC - drawn at physical pixel resolution for crispness
     const drawSize = npc.drawSize || 48;
-    ctx.fillStyle = 'rgba(30,25,20,0.6)';
-    ctx.font = 'bold 11px sans-serif';
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var pxX = npc.x * fontScale;
+    var pxY = (npc.y + drawSize/2 + 6) * fontScale;
+    var pxFont = scaledFont(13, 14);
+    ctx.font = 'bold ' + pxFont + 'px sans-serif';
     ctx.textAlign = 'center';
-    const tw = ctx.measureText(npc.name).width + 10;
-    ctx.beginPath(); ctx.roundRect(npc.x - tw/2, npc.y + drawSize/2 + 4, tw, 16, 4); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.fillText(npc.name, npc.x, npc.y + drawSize/2 + 15);
+    var tw = (ctx.measureText(npc.name).width + 16 * dpr);
+    var th = pxFont + 10 * dpr;
+    ctx.fillStyle = 'rgba(30,25,20,0.78)';
+    ctx.beginPath(); ctx.roundRect(pxX - tw/2, pxY, tw, th, 5 * dpr); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.fillText(npc.name, pxX, pxY + pxFont + 2 * dpr);
+    ctx.restore();
     ctx.textAlign = 'left';
   }
 
@@ -3619,13 +3636,20 @@ function render(){
       obj.draw(ctx, obj.x, obj.y);
       if(obj.name){
         const drawSize = obj.drawSize || 48;
-        ctx.fillStyle = 'rgba(30,25,20,0.6)';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        var pxX2 = obj.x * fontScale;
+        var pxY2 = (obj.y + drawSize/2 + 6) * fontScale;
+        var pxFont2 = scaledFont(13, 14);
+        ctx.font = 'bold ' + pxFont2 + 'px sans-serif';
         ctx.textAlign = 'center';
-        const tw = ctx.measureText(obj.name).width + 10;
-        ctx.beginPath(); ctx.roundRect(obj.x - tw/2, obj.y + drawSize/2 + 4, tw, 16, 4); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        ctx.fillText(obj.name, obj.x, obj.y + drawSize/2 + 15);
+        var tw2 = (ctx.measureText(obj.name).width + 16 * dpr);
+        var th2 = pxFont2 + 10 * dpr;
+        ctx.fillStyle = 'rgba(30,25,20,0.78)';
+        ctx.beginPath(); ctx.roundRect(pxX2 - tw2/2, pxY2, tw2, th2, 5 * dpr); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.96)';
+        ctx.fillText(obj.name, pxX2, pxY2 + pxFont2 + 2 * dpr);
+        ctx.restore();
         ctx.textAlign = 'left';
       }
     } else {
@@ -3636,16 +3660,23 @@ function render(){
       ctx.beginPath(); ctx.arc(cx, cy, pulse+3, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = 'rgba(255,217,102,0.8)';
       ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, Math.PI*2); ctx.fill();
-      // Show label for important objects (stairs, doors, etc.)
+      // Show label for important objects - drawn at physical pixel resolution
       if(obj.label){
-        ctx.fillStyle = 'rgba(217,119,87,0.85)';
-        ctx.font = 'bold 12px sans-serif';
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        var lcx = cx * fontScale;
+        var lcy = (cy + 14) * fontScale;
+        var lpxFont = scaledFont(14, 15);
+        ctx.font = 'bold ' + lpxFont + 'px sans-serif';
         ctx.textAlign = 'center';
         var lt = obj.label;
-        var ltw = ctx.measureText(lt).width + 16;
-        ctx.beginPath(); ctx.roundRect(cx - ltw/2, cy + 12, ltw, 20, 6); ctx.fill();
+        var ltw = ctx.measureText(lt).width + 20 * dpr;
+        var lth = lpxFont + 12 * dpr;
+        ctx.fillStyle = 'rgba(217,119,87,0.92)';
+        ctx.beginPath(); ctx.roundRect(lcx - ltw/2, lcy, ltw, lth, 6 * dpr); ctx.fill();
         ctx.fillStyle = '#fff';
-        ctx.fillText(lt, cx, cy + 26);
+        ctx.fillText(lt, lcx, lcy + lpxFont + 3 * dpr);
+        ctx.restore();
         ctx.textAlign = 'left';
       }
     }
@@ -3655,13 +3686,20 @@ function render(){
   if(G.scene === 'delivery' && isNight()){
     const catX = 600, catY = 130;
     drawCat(ctx, catX, catY, !G.flags.catTalked);
-    ctx.fillStyle = 'rgba(30,25,20,0.6)';
-    ctx.font = 'bold 11px sans-serif';
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var catPxX = catX * fontScale;
+    var catPxY = (catY + 26) * fontScale;
+    var catFont = scaledFont(13, 14);
+    ctx.font = 'bold ' + catFont + 'px sans-serif';
     ctx.textAlign = 'center';
-    const tw = ctx.measureText('犹豫小猫').width + 10;
-    ctx.beginPath(); ctx.roundRect(catX - tw/2, catY + 24, tw, 16, 4); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.fillText('犹豫小猫', catX, catY + 35);
+    var catTw = ctx.measureText('犹豫小猫').width + 16 * dpr;
+    var catTh = catFont + 10 * dpr;
+    ctx.fillStyle = 'rgba(30,25,20,0.78)';
+    ctx.beginPath(); ctx.roundRect(catPxX - catTw/2, catPxY, catTw, catTh, 5 * dpr); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.fillText('犹豫小猫', catPxX, catPxY + catFont + 2 * dpr);
+    ctx.restore();
     ctx.textAlign = 'left';
   }
 
@@ -3670,32 +3708,37 @@ function render(){
     drawPuppy(ctx, 350, 200, true);
   }
 
-  // Draw exits as prominent labeled arrows
+  // Draw exits as prominent labeled arrows - drawn at physical pixel resolution
   for(const ex of sc.exits){
     const locked = ex.locked && !isExitUnlocked(ex);
     const cx = ex.x + ex.w/2, cy = ex.y + ex.h/2;
-    // Larger pill-shaped button with glow
-    ctx.fillStyle = locked ? 'rgba(60,60,60,0.85)' : 'rgba(217,119,87,0.9)';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var exPxX = cx * fontScale;
+    var exPxY = cy * fontScale;
+    var exFont = scaledFont(16, 17);
+    ctx.font = 'bold ' + exFont + 'px sans-serif';
     ctx.textAlign = 'center';
-    var label = ex.label + (locked ? ' 🔒' : '');
-    var tw = ctx.measureText(label).width + 24;
-    var th = 28;
-    // Rounded rect with shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 2;
-    ctx.beginPath(); ctx.roundRect(cx - tw/2, cy - th/2, tw, th, 14); ctx.fill();
+    var exLabel = ex.label + (locked ? ' 🔒' : '');
+    var exTw = ctx.measureText(exLabel).width + 28 * dpr;
+    var exTh = exFont + 18 * dpr;
+    // Shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 8 * dpr;
+    ctx.shadowOffsetY = 2 * dpr;
+    ctx.fillStyle = locked ? 'rgba(60,60,60,0.88)' : 'rgba(217,119,87,0.93)';
+    ctx.beginPath(); ctx.roundRect(exPxX - exTw/2, exPxY - exTh/2, exTw, exTh, 14 * dpr); ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
     // Border
-    ctx.strokeStyle = locked ? 'rgba(120,120,120,0.5)' : 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.roundRect(cx - tw/2, cy - th/2, tw, th, 14); ctx.stroke();
+    ctx.strokeStyle = locked ? 'rgba(120,120,120,0.6)' : 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.roundRect(exPxX - exTw/2, exPxY - exTh/2, exTw, exTh, 14 * dpr); ctx.stroke();
     // Text
-    ctx.fillStyle = locked ? 'rgba(180,180,180,0.9)' : '#fff';
-    ctx.fillText(label, cx, cy + 5);
+    ctx.fillStyle = locked ? 'rgba(180,180,180,0.95)' : '#fff';
+    ctx.fillText(exLabel, exPxX, exPxY + exFont/3);
+    ctx.restore();
     ctx.textAlign = 'left';
   }
 
@@ -3813,11 +3856,22 @@ function drawIronDoor(ctx){
     ctx.beginPath(); ctx.arc(670, 385, pulse+2, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = 'rgba(255,217,102,0.7)';
     ctx.beginPath(); ctx.arc(670, 385, pulse, 0, Math.PI*2); ctx.fill();
-    // Label
-    ctx.fillStyle = 'rgba(217,119,87,0.85)';
-    ctx.font = 'bold 12px sans-serif';
+    // Label - drawn at physical pixel resolution for crispness
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var doorFont = scaledFont(14, 15);
+    var doorPxX = 670 * fontScale;
+    var doorPxY = 435 * fontScale;
+    ctx.font = 'bold ' + doorFont + 'px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('铁门', 670, 435);
+    var doorLabel = '铁门';
+    var doorTw = ctx.measureText(doorLabel).width + 20 * dpr;
+    var doorTh = doorFont + 12 * dpr;
+    ctx.fillStyle = 'rgba(217,119,87,0.92)';
+    ctx.beginPath(); ctx.roundRect(doorPxX - doorTw/2, doorPxY, doorTw, doorTh, 6 * dpr); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(doorLabel, doorPxX, doorPxY + doorFont + 3 * dpr);
+    ctx.restore();
     ctx.textAlign = 'left';
   }
 }
