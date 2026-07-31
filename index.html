@@ -4,6 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>快乐小狗丢失案</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -169,13 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.2.0" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.2.0-HD</div>
   </div>
 </div>
 
@@ -195,6 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.2.0-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -492,42 +497,46 @@ const G = {
 // ============================================================
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
+// 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
+var IMG_VER = 'v2.2.0';
+function imgSrc(path){ return path + '?v=' + IMG_VER; }
+
 const imgCache = {};
 const imagePaths = {
-  community: 'assets/images/community_bg.webp',
-  teashop: 'assets/images/teashop_bg.webp',
-  delivery: 'assets/images/express_station_bg.webp',
-  kindergarten: 'assets/images/kindergarten_bg.webp',
-  parking_b1: 'assets/images/parking_b1_bg.webp',
-  parking_b2: 'assets/images/parking_b2_bg.webp',
-  sm_mall: 'assets/images/sm_mall_bg.webp',
-  supermarket: 'assets/images/supermarket_bg.webp',
-  beach: 'assets/images/beach_bg.webp',
-  cover: 'assets/images/cover.webp',
-  puppy: 'assets/images/puppy.webp',
-  cat: 'assets/images/cat.webp',
-  old_chen: 'assets/images/old_chen.webp',
-  capybara: 'assets/images/capybara.webp',
-  gatekeeper: 'assets/images/gatekeeper.webp',
-  wang_ayi: 'assets/images/wang_ayi.webp',
-  station_owner: 'assets/images/station_owner.webp',
-  teacher: 'assets/images/teacher.webp',
-  guard: 'assets/images/guard.webp',
-  cashier: 'assets/images/cashier.webp',
+  community: imgSrc('assets/images/community_bg.webp'),
+  teashop: imgSrc('assets/images/teashop_bg.webp'),
+  delivery: imgSrc('assets/images/express_station_bg.webp'),
+  kindergarten: imgSrc('assets/images/kindergarten_bg.webp'),
+  parking_b1: imgSrc('assets/images/parking_b1_bg.webp'),
+  parking_b2: imgSrc('assets/images/parking_b2_bg.webp'),
+  sm_mall: imgSrc('assets/images/sm_mall_bg.webp'),
+  supermarket: imgSrc('assets/images/supermarket_bg.webp'),
+  beach: imgSrc('assets/images/beach_bg.webp'),
+  cover: imgSrc('assets/images/cover.webp'),
+  puppy: imgSrc('assets/images/puppy.webp'),
+  cat: imgSrc('assets/images/cat.webp'),
+  old_chen: imgSrc('assets/images/old_chen.webp'),
+  capybara: imgSrc('assets/images/capybara.webp'),
+  gatekeeper: imgSrc('assets/images/gatekeeper.webp'),
+  wang_ayi: imgSrc('assets/images/wang_ayi.webp'),
+  station_owner: imgSrc('assets/images/station_owner.webp'),
+  teacher: imgSrc('assets/images/teacher.webp'),
+  guard: imgSrc('assets/images/guard.webp'),
+  cashier: imgSrc('assets/images/cashier.webp'),
 };
 // Horror quest images - loaded on demand when horror quest starts
 const horrorImagePaths = {
-  ghost_red_tears: 'assets/images/ghost_red_tears.webp',
-  ghost_scream: 'assets/images/ghost_scream.webp',
-  ghost_reach: 'assets/images/ghost_reach.webp',
-  ghost_mirror: 'assets/images/ghost_mirror.webp',
-  ghost_shadow: 'assets/images/ghost_shadow.webp',
-  ghost_lady: 'assets/images/ghost_lady.webp',
-  stairwell: 'assets/images/stairwell_bg.webp',
-  horror_basement: 'assets/images/basement_bg.webp',
-  corridor: 'assets/images/corridor_bg.webp',
-  mirror_room: 'assets/images/mirror_room_bg.webp',
-  ritual_room: 'assets/images/ritual_room_bg.webp',
+  ghost_red_tears: imgSrc('assets/images/ghost_red_tears.webp'),
+  ghost_scream: imgSrc('assets/images/ghost_scream.webp'),
+  ghost_reach: imgSrc('assets/images/ghost_reach.webp'),
+  ghost_mirror: imgSrc('assets/images/ghost_mirror.webp'),
+  ghost_shadow: imgSrc('assets/images/ghost_shadow.webp'),
+  ghost_lady: imgSrc('assets/images/ghost_lady.webp'),
+  stairwell: imgSrc('assets/images/stairwell_bg.webp'),
+  horror_basement: imgSrc('assets/images/basement_bg.webp'),
+  corridor: imgSrc('assets/images/corridor_bg.webp'),
+  mirror_room: imgSrc('assets/images/mirror_room_bg.webp'),
+  ritual_room: imgSrc('assets/images/ritual_room_bg.webp'),
 };
 var horrorImagesLoaded = false;
 function loadHorrorImages(){
