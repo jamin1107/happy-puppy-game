@@ -68,6 +68,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 .title-tags{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 .title-tag{font-size:11px;color:rgba(255,217,102,0.7);border:1px solid rgba(255,217,102,0.25);border-radius:12px;padding:3px 12px;background:rgba(255,217,102,0.05);}
 
+/* Loading overlay */
+#loadingOverlay{position:fixed;inset:0;z-index:60;background:#0d0d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+#loadingBarWrap{width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-top:16px;overflow:hidden;}
+#loadingBar{height:100%;background:linear-gradient(90deg,#d97757,#ffd966);border-radius:2px;transition:width 0.3s;width:0;}
+#loadingText{font-size:12px;color:rgba(255,255,255,0.5);margin-top:8px;}
+
 /* Ending screen */
 #endingScreen{position:fixed;inset:0;background:linear-gradient(180deg,#2a1f3e 0%,#5c3a2e 100%);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:40;text-align:center;padding:40px;}
 #endingScreen.show{display:flex;}
@@ -136,6 +142,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 <div id="gameWrapper">
 <canvas id="gameCanvas"></canvas>
 
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div style="font-size:18px;font-weight:700;color:#ffd966;">快乐小狗寻回记</div>
+  <div id="loadingBarWrap"><div id="loadingBar"></div></div>
+  <div id="loadingText">加载中...</div>
+</div>
+
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
   <img id="titleBgImg" src="assets/images/cover.jpg" alt="">
@@ -145,13 +158,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div class="title-tip">点击场景中的角色和发光点交互<br>点击箭头切换场景</div>
-    <div class="title-tags">
-      <span class="title-tag">解谜</span>
-      <span class="title-tag">寻物</span>
-      <span class="title-tag">昼夜交替</span>
-      <span class="title-tag">隐藏结局</span>
-    </div>
   </div>
 </div>
 
@@ -394,13 +400,36 @@ const imagePaths = {
   cashier: 'assets/images/cashier.jpg',
 };
 function loadImages(){
+  let loaded = 0;
+  const total = Object.keys(imagePaths).length;
   for(const [key, path] of Object.entries(imagePaths)){
     const img = new Image();
     img.onload = () => {
       imgCache[key] = img;
+      loaded++;
+      updateLoadingProgress(loaded, total);
     };
-    img.onerror = () => { console.warn('Failed to load: ' + path); };
+    img.onerror = () => {
+      console.warn('Failed to load: ' + path);
+      loaded++;
+      updateLoadingProgress(loaded, total);
+    };
     img.src = path;
+  }
+}
+
+function updateLoadingProgress(loaded, total){
+  var bar = document.getElementById('loadingBar');
+  var txt = document.getElementById('loadingText');
+  if(!bar || !txt) return;
+  var pct = Math.round(loaded / total * 100);
+  bar.style.width = pct + '%';
+  txt.textContent = pct < 100 ? ('加载中 ' + pct + '%') : '加载完成';
+  if(pct >= 100){
+    setTimeout(function(){
+      var ld = document.getElementById('loadingOverlay');
+      if(ld) ld.style.display = 'none';
+    }, 300);
   }
 }
 loadImages();
@@ -3274,18 +3303,18 @@ function render(){
 
   const sc = scenes[G.scene];
 
-  // Draw ALL NPCs as clickable hotspots (always show, not proximity-based)
+  // Draw ALL NPCs as clickable hotspots
   for(const npc of sc.npcs){
     npc.draw(ctx, npc.x, npc.y);
-    // Name tag (always show)
+    // Small name tag below NPC
     const drawSize = npc.drawSize || 48;
-    ctx.fillStyle = 'rgba(30,25,20,0.8)';
-    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = 'rgba(30,25,20,0.6)';
+    ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
-    const tw = ctx.measureText(npc.name).width + 12;
-    ctx.beginPath(); ctx.roundRect(npc.x - tw/2, npc.y - drawSize/2 - 22, tw, 18, 4); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.fillText(npc.name, npc.x, npc.y - drawSize/2 - 8);
+    const tw = ctx.measureText(npc.name).width + 10;
+    ctx.beginPath(); ctx.roundRect(npc.x - tw/2, npc.y + drawSize/2 + 4, tw, 16, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(npc.name, npc.x, npc.y + drawSize/2 + 15);
     ctx.textAlign = 'left';
   }
 
@@ -3293,39 +3322,39 @@ function render(){
   for(const obj of sc.objects){
     if(obj.isNpcLike){
       obj.draw(ctx, obj.x, obj.y);
-      // Name tag for NPC-like objects
       if(obj.name){
         const drawSize = obj.drawSize || 48;
-        ctx.fillStyle = 'rgba(30,25,20,0.8)';
-        ctx.font = 'bold 12px sans-serif';
+        ctx.fillStyle = 'rgba(30,25,20,0.6)';
+        ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        const tw = ctx.measureText(obj.name).width + 12;
-        ctx.beginPath(); ctx.roundRect(obj.x - tw/2, obj.y - drawSize/2 - 22, tw, 18, 4); ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.fillText(obj.name, obj.x, obj.y - drawSize/2 - 8);
+        const tw = ctx.measureText(obj.name).width + 10;
+        ctx.beginPath(); ctx.roundRect(obj.x - tw/2, obj.y + drawSize/2 + 4, tw, 16, 4); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillText(obj.name, obj.x, obj.y + drawSize/2 + 15);
         ctx.textAlign = 'left';
       }
     } else {
-      // Pulsing interaction dot
+      // Small subtle interaction dot
       const cx = obj.x + obj.w/2, cy = obj.y + obj.h/2;
-      const pulse = 6 + Math.sin(Date.now()/300)*2;
-      ctx.fillStyle = 'rgba(255,217,102,0.3)';
-      ctx.beginPath(); ctx.arc(cx, cy, pulse+4, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,217,102,0.9)';
+      const pulse = 4 + Math.sin(Date.now()/400)*1.5;
+      ctx.fillStyle = 'rgba(255,217,102,0.25)';
+      ctx.beginPath(); ctx.arc(cx, cy, pulse+3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,217,102,0.8)';
       ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, Math.PI*2); ctx.fill();
     }
   }
 
-  // Draw cat at night in delivery station (always show name tag)
+  // Draw cat at night in delivery station
   if(G.scene === 'delivery' && isNight()){
     const catX = 600, catY = 130;
     drawCat(ctx, catX, catY, !G.flags.catTalked);
-    ctx.fillStyle = 'rgba(30,25,20,0.8)';
-    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = 'rgba(30,25,20,0.6)';
+    ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.beginPath(); ctx.roundRect(catX - 42, catY - 42, 84, 18, 4); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.fillText('犹豫小猫', catX, catY - 28);
+    const tw = ctx.measureText('犹豫小猫').width + 10;
+    ctx.beginPath(); ctx.roundRect(catX - tw/2, catY + 24, tw, 16, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText('犹豫小猫', catX, catY + 35);
     ctx.textAlign = 'left';
   }
 
@@ -3334,39 +3363,24 @@ function render(){
     drawPuppy(ctx, 350, 200, true);
   }
 
-  // Draw exits as labeled arrows (always visible)
+  // Draw exits as simple labeled arrows
   for(const ex of sc.exits){
     const locked = ex.locked && !isExitUnlocked(ex);
     const cx = ex.x + ex.w/2, cy = ex.y + ex.h/2;
-    // Exit glow
-    ctx.fillStyle = locked ? 'rgba(120,120,120,0.2)' : 'rgba(124,154,138,0.25)';
-    ctx.fillRect(ex.x, ex.y, ex.w, ex.h);
-    ctx.strokeStyle = locked ? 'rgba(150,150,150,0.4)' : 'rgba(124,154,138,0.6)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash(locked ? [3,3] : [6,4]);
-    ctx.strokeRect(ex.x, ex.y, ex.w, ex.h);
-    ctx.setLineDash([]);
-    // Label
-    ctx.fillStyle = locked ? 'rgba(180,180,180,0.8)' : 'rgba(124,154,138,1)';
-    ctx.font = 'bold 13px sans-serif';
+    // Simple semi-transparent label
+    ctx.fillStyle = locked ? 'rgba(80,80,80,0.6)' : 'rgba(30,25,20,0.6)';
+    ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.save();
-    ctx.translate(cx, cy);
-    if(ex.w < ex.h) ctx.rotate(-Math.PI/2);
-    ctx.fillText(ex.label + (locked ? ' 🔒' : ''), 0, 5);
-    ctx.restore();
+    var label = ex.label + (locked ? ' 🔒' : '');
+    var tw = ctx.measureText(label).width + 14;
+    ctx.beginPath(); ctx.roundRect(cx - tw/2, cy - 10, tw, 20, 6); ctx.fill();
+    ctx.fillStyle = locked ? 'rgba(180,180,180,0.9)' : '#fff';
+    ctx.fillText(label, cx, cy + 4);
     ctx.textAlign = 'left';
   }
 
   // Night overlay (drawn after hotspots so it tints everything)
   drawNightOverlay(ctx);
-
-  // Hint text
-  ctx.fillStyle = 'rgba(30,25,20,0.6)';
-  ctx.font = '13px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('点击发光点交互 · 点击箭头切换场景', CW/2, CH - 12);
-  ctx.textAlign = 'left';
 }
 
 // ============================================================
