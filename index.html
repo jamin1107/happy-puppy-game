@@ -153,6 +153,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
   <div class="inv-item" id="invCigarettes"><span class="inv-icon">🚬</span>烟</div>
   <div class="inv-item" id="invDogFood"><span class="inv-icon">🦴</span>狗粮</div>
   <div class="inv-item" id="invCatFood"><span class="inv-icon">🐟</span>猫粮</div>
+  <div class="inv-item" id="invConch"><span class="inv-icon">🐚</span>海螺</div>
+  <div class="inv-item" id="invTidePearl"><span class="inv-icon">🔮</span>潮汐珠</div>
+  <div class="inv-item" id="invSeaFeather"><span class="inv-icon">🪶</span>海风羽</div>
+  <div class="inv-item" id="invMoonDew"><span class="inv-icon">💧</span>月光露</div>
 </div>
 
 <!-- Interaction prompt -->
@@ -169,7 +173,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 <!-- Quest log -->
 <div id="questLog">
   <div class="quest-panel">
-    <div class="quest-title">寻找金宝</div>
+    <div class="quest-title">寻找快乐小狗</div>
     <div class="quest-subtitle">陈记茶叶店的快乐小狗走失了</div>
     <div id="questItems"></div>
     <div style="margin-top:20px;text-align:center;">
@@ -289,6 +293,10 @@ const G = {
     cigarettes: false,
     dogFood: false,
     catFood: false,
+    conch: false,        // 海螺 - hidden ending item
+    tidePearl: false,    // 潮汐珠 - trial 1 reward
+    seaFeather: false,   // 海风羽 - trial 2 reward
+    moonDew: false,      // 月光露 - trial 3 reward
   },
   flags: {
     restPromptShown: false,
@@ -301,7 +309,18 @@ const G = {
     beachUnlocked: false,
     beachVisited: false,
     gatekeeperTalked: false,
+    beachMentioned: false,    // gatekeeper mentioned 荻花洲
+    capybaraMet: false,       // met capybara
+    trial1Done: false,        // shell puzzle
+    trial2Done: false,        // reef memory
+    trial3Done: false,        // reed echo
+    capybaraRevealed: false,  // capybara revealed truth
+    circuitSolved: false,     // B2 circuit puzzle
+    conchBlown: false,        // blew conch at SM mall
+    hiddenEnding: false,      // hidden ending triggered
   },
+  // Mini-game state
+  miniGame: null,
   dialogue: null,
   dlgIndex: 0,
   dlgChoices: null,
@@ -319,10 +338,40 @@ const G = {
 const keys = {};
 window.addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
+  if(G.state === 'minigame'){
+    e.preventDefault();
+    var k = e.key.toLowerCase();
+    if(G.miniGame && G.miniGame.type === 'shell'){
+      shellPuzzleInput(k);
+    } else if(k === 'escape'){
+      exitMiniGame();
+    }
+    return;
+  }
   if(e.key === ' '){ e.preventDefault(); tryInteract(); }
   if(e.key === 'Escape'){ if(G.state==='questlog') closeQuestLog(); }
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// Canvas click for minigames
+canvas.addEventListener('click', function(e){
+  if(G.state !== 'minigame') return;
+  var rect = canvas.getBoundingClientRect();
+  var scale = rect.width / CW;
+  var x = (e.clientX - rect.left) / scale;
+  var y = (e.clientY - rect.top) / scale;
+  miniGameCanvasClick(x, y);
+});
+canvas.addEventListener('touchend', function(e){
+  if(G.state !== 'minigame') return;
+  e.preventDefault();
+  var touch = e.changedTouches[0];
+  var rect = canvas.getBoundingClientRect();
+  var scale = rect.width / CW;
+  var x = (touch.clientX - rect.left) / scale;
+  var y = (touch.clientY - rect.top) / scale;
+  miniGameCanvasClick(x, y);
+});
 
 // Touch joystick
 let joyActive = false, joyDX = 0, joyDY = 0;
@@ -610,11 +659,20 @@ const scenes = {
       {x:60,y:60,w:100,h:70, type:'beach_rock'},
       {x:640,y:60,w:100,h:70, type:'beach_rock'},
       {x:300,y:80,w:200,h:50, type:'beach_hut'},
+      // Reef area obstacles (for puzzle 2)
+      {x:540,y:380,w:50,h:40, type:'beach_rock'},
+      // Reed area (for puzzle 3)
+      {x:60,y:440,w:80,h:50, type:'beach_rock'},
     ],
-    npcs: [],
+    npcs: [
+      {id:'capybara', x:400, y:220, w:50, h:50, name:'卡皮巴拉', draw:drawCapybaraLazy, interact: interactCapybara},
+    ],
     objects: [
-      {id:'beach_spot', x:400, y:350, w:60, h:60, interact: interactBeachSpot},
+      {id:'beach_spot', x:250, y:380, w:60, h:60, interact: interactBeachSpot},
       {id:'beach_car', x:80, y:300, w:50, h:50, interact: interactBeachCar},
+      {id:'shell_puzzle', x:650, y:350, w:60, h:60, interact: interactShellPuzzle},
+      {id:'reef_puzzle', x:550, y:400, w:50, h:50, interact: interactReefPuzzle},
+      {id:'reed_puzzle', x:100, y:460, w:50, h:50, interact: interactReedPuzzle},
     ],
     exits: [
       {x:0,y:300,w:30,h:60,to:'parking_b1',label:'← 开车回车库'},
@@ -672,7 +730,7 @@ function drawPlayer(ctx, x, y, dir, frame){
   ctx.restore();
 }
 
-// --- Happy Puppy (金宝) - matching photo: cream/white body, golden ears, black nose ---
+// --- Happy Puppy - matching photo: cream/white body, golden ears, black nose ---
 function drawPuppy(ctx, x, y, happy=true){
   ctx.save();
   ctx.translate(x, y);
@@ -778,7 +836,7 @@ function drawPuppy(ctx, x, y, happy=true){
   ctx.restore();
 }
 
-// --- Black & White Cat (墨墨) - tuxedo cat ---
+// --- Black & White Cat - tuxedo cat ---
 function drawCat(ctx, x, y, sad=true){
   ctx.save();
   ctx.translate(x, y);
@@ -1090,6 +1148,77 @@ function drawCashier(ctx, x, y){
   // smiling mouth
   ctx.strokeStyle = '#8b6b4b'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.arc(0, -9, 2.5, Math.PI*1.2, Math.PI*1.8); ctx.stroke();
+  ctx.restore();
+}
+
+// --- 卡皮巴拉 (Capybara) - large, zen, sitting on beach ---
+function drawCapybara(ctx, x, y, awake){
+  ctx.save();
+  ctx.translate(x, y);
+  // shadow - large
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(0, 28, 30, 8, 0, 0, Math.PI*2);
+  ctx.fill();
+  // body - big round blob, brown
+  ctx.fillStyle = '#8b6f4e';
+  ctx.beginPath();
+  ctx.ellipse(0, 8, 28, 20, 0, 0, Math.PI*2);
+  ctx.fill();
+  // body highlight
+  ctx.fillStyle = '#9b8060';
+  ctx.beginPath();
+  ctx.ellipse(-5, 2, 20, 12, 0, 0, Math.PI*2);
+  ctx.fill();
+  // legs
+  ctx.fillStyle = '#7a5f3e';
+  ctx.beginPath(); ctx.ellipse(-16, 24, 7, 6, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(16, 24, 7, 6, 0, 0, Math.PI*2); ctx.fill();
+  // head - blocky rectangular shape
+  ctx.fillStyle = '#8b6f4e';
+  ctx.beginPath();
+  ctx.roundRect(-16, -18, 32, 22, 8);
+  ctx.fill();
+  // head highlight
+  ctx.fillStyle = '#9b8060';
+  ctx.beginPath();
+  ctx.roundRect(-12, -16, 20, 10, 6);
+  ctx.fill();
+  // ears
+  ctx.fillStyle = '#7a5f3e';
+  ctx.beginPath(); ctx.arc(-13, -16, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(13, -16, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#a08868';
+  ctx.beginPath(); ctx.arc(-13, -16, 2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(13, -16, 2, 0, Math.PI*2); ctx.fill();
+  // eyes
+  if(awake){
+    // open eyes - half-lidded, zen
+    ctx.fillStyle = '#333';
+    ctx.beginPath(); ctx.ellipse(-7, -6, 2.5, 1.5, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(7, -6, 2.5, 1.5, 0, 0, Math.PI*2); ctx.fill();
+    // eye shine
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-6.5, -6.5, 0.8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7.5, -6.5, 0.8, 0, Math.PI*2); ctx.fill();
+  } else {
+    // closed eyes - content
+    ctx.strokeStyle = '#5a4530'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(-7, -6, 3, Math.PI*0.1, Math.PI*0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(7, -6, 3, Math.PI*0.1, Math.PI*0.9); ctx.stroke();
+  }
+  // nose - big nostrils
+  ctx.fillStyle = '#5a4530';
+  ctx.beginPath(); ctx.ellipse(-2.5, 0, 1.5, 1.2, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(2.5, 0, 1.5, 1.2, 0, 0, Math.PI*2); ctx.fill();
+  // mouth - small smile
+  ctx.strokeStyle = '#5a4530'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, 2, 3, Math.PI*0.2, Math.PI*0.8); ctx.stroke();
+  // a small fruit on top (orange/tangerine - classic capybara aesthetic)
+  ctx.fillStyle = '#e8916f';
+  ctx.beginPath(); ctx.arc(0, -22, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#5a8a3a';
+  ctx.beginPath(); ctx.arc(0, -26, 2, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
 // ============================================================
@@ -1460,46 +1589,71 @@ function interactChen(){
   const stage = G.questStage;
   if(stage === 0){
     startDialogue('老陈', '🍵', [
-      '哎呀，小伙子你来得正好！我家金宝今天早上不见了，门关得严严实实的，不知怎么跑出去的……',
-      '金宝是只奶油色的大狗，耳朵金黄金黄的，整天笑嘻嘻的，可招人喜欢了。',
+      '哎呀，小伙子你来得正好！我家快乐小狗今天早上不见了，门关得严严实实的，不知怎么跑出去的……',
+      '快乐小狗是只奶油色的大狗，耳朵金黄金黄的，整天笑嘻嘻的，可招人喜欢了。',
       '这是它的项圈，上面有股茶叶味。麻烦你在小区里帮忙找找，我在这等着消息！',
-      '【获得道具：金宝的项圈】',
+      '【获得道具：快乐小狗的项圈】',
     ], null, () => {
       G.questStage = 1;
       G.clues.add('collar');
-      showToast('任务接受：寻找金宝');
+      showToast('任务接受：寻找快乐小狗');
       updateQuestLog();
     });
   } else if(stage < 8){
     startDialogue('老陈', '🍵', [
-      '找到金宝了吗？唉，我这心里七上八下的……',
+      '找到快乐小狗了吗？唉，我这心里七上八下的……',
       '你再好好找找，小区里各处都看看，也许有人见到了。',
     ]);
   } else if(stage === 8){
-    startDialogue('老陈', '🍵', [
-      '金宝！我的金宝回来了！太谢谢你了！',
-      '你是怎么找到它的？',
-    ], [
-      {text: '是小区里一只黑白小猫告诉我的', callback: () => {
-        startDialogue('老陈', '🍵', [
-          '黑白小猫？……唉，是我疏忽了，光顾着金宝，没留意还有只小可怜。',
-          '以后我每天都给它留饼干，你就放心吧。',
-          '这茶叶你拿着，还有金宝的谢礼。以后常来喝茶啊！',
-        ], null, () => {
-          G.questStage = 10;
-          showEnding(true);
-        });
-      }},
-      {text: '在SM商场的仓库里找到的', callback: () => {
-        startDialogue('老陈', '🍵', [
-          'SM商场？那可远了去了，金宝怎么跑那么远……',
-          '不管怎样，找回来就好！这茶叶你拿着，谢谢你了！',
-        ], null, () => {
-          G.questStage = 10;
-          showEnding(false);
-        });
-      }},
-    ]);
+    // Hidden ending path: player brought both puppy and cat
+    if(G.flags.hiddenEnding){
+      startDialogue('老陈', '🍵', [
+        '快乐小狗！回来了！太好了！',
+        '等等……那只黑白小猫怎么也跟着来了？',
+        '它平时见了人就跑的，怎么今天……',
+      ], [
+        {text: '它们是家人，被同一个主人遗弃的', callback: () => {
+          startDialogue('老陈', '🍵', [
+            '……什么？同一个主人？',
+            '难怪……难怪快乐小狗每天偷偷叼饼干出去，原来是给它留的。',
+            '我这老糊涂，一直没发现。',
+            '（老陈蹲下身，黑白小猫犹豫了一下，慢慢靠近了他。）',
+            '行了行了，以后你也不用在外面流浪了。',
+            '快乐小狗有伴了，我这茶叶店也热闹了。',
+            '都留下吧，都是家人。',
+            '【老陈收养了黑白小猫，快乐小狗和它再也不用分开了】',
+          ], null, () => {
+            G.questStage = 10;
+            showEnding(true);
+          });
+        }},
+      ]);
+    } else {
+      startDialogue('老陈', '🍵', [
+        '快乐小狗！我的快乐小狗回来了！太谢谢你了！',
+        '你是怎么找到它的？',
+      ], [
+        {text: '是小区里一只黑白小猫告诉我的', callback: () => {
+          startDialogue('老陈', '🍵', [
+            '黑白小猫？……唉，是我疏忽了，光顾着快乐小狗，没留意还有只小可怜。',
+            '以后我每天都给它留饼干，你就放心吧。',
+            '这茶叶你拿着，还有快乐小狗的谢礼。以后常来喝茶啊！',
+          ], null, () => {
+            G.questStage = 10;
+            showEnding(true);
+          });
+        }},
+        {text: '在SM商场的仓库里找到的', callback: () => {
+          startDialogue('老陈', '🍵', [
+            'SM商场？那可远了去了，快乐小狗怎么跑那么远……',
+            '不管怎样，找回来就好！这茶叶你拿着，谢谢你了！',
+          ], null, () => {
+            G.questStage = 10;
+            showEnding(false);
+          });
+        }},
+      ]);
+    }
   } else {
     startDialogue('老陈', '🍵', ['谢谢你啊，以后常来喝茶！']);
   }
@@ -1507,9 +1661,9 @@ function interactChen(){
 
 function interactDogbed(){
   if(G.questStage === 0){
-    startDialogue('旁白', '🐾', ['一个空空的狗窝，里面还有金宝的温暖余温。看来它刚走不久。']);
+    startDialogue('旁白', '🐾', ['一个空空的狗窝，里面还有快乐小狗的温暖余温。看来它刚走不久。']);
   } else {
-    startDialogue('旁白', '🐾', ['金宝的狗窝，现在空空的。快找到它吧！']);
+    startDialogue('旁白', '🐾', ['快乐小狗的狗窝，现在空空的。快找到它吧！']);
   }
 }
 
@@ -1517,17 +1671,17 @@ function interactDogbed(){
 function interactWang(){
   if(G.questStage <= 1){
     startDialogue('王阿姨', '👩', [
-      '哟，你是在找老陈家的金宝啊？',
-      '今早我在花园这边晒太阳的时候，看见金宝追着一只蝴蝶往东边跑了，可开心了。',
+      '哟，你是在找老陈家的快乐小狗啊？',
+      '今早我在花园这边晒太阳的时候，看见快乐小狗追着一只蝴蝶往东边跑了，可开心了。',
       '它跑得可快了，一溜烟就没影了。东边那边是幼儿园的方向，你要不去那边看看？',
     ], null, () => {
       G.questStage = Math.max(G.questStage, 3);
       G.clues.add('wang_seen');
-      showToast('线索：金宝追蝴蝶往东跑了');
+      showToast('线索：快乐小狗追蝴蝶往东跑了');
       updateQuestLog();
     });
   } else {
-    startDialogue('王阿姨', '👩', ['找到了吗？金宝可是只好狗，你一定能找到的！']);
+    startDialogue('王阿姨', '👩', ['找到了吗？快乐小狗可是只好狗，你一定能找到的！']);
   }
 }
 
@@ -1539,11 +1693,11 @@ function interactPawprints(){
     ], null, () => {
       G.clues.add('pawprints');
       if(G.questStage < 2) G.questStage = 2;
-      showToast('线索：发现金宝的爪印');
+      showToast('线索：发现快乐小狗的爪印');
       updateQuestLog();
     });
   } else {
-    startDialogue('旁白', '🐾', ['金宝的爪印，一路向东延伸。']);
+    startDialogue('旁白', '🐾', ['快乐小狗的爪印，一路向东延伸。']);
   }
 }
 
@@ -1598,38 +1752,38 @@ function interactCatSpot(){
     // Night time - cat is here!
     if(!G.flags.catTalked && G.questStage >= 4){
       // Cat interaction
-      startDialogue('黑白小猫·墨墨', '🐱', [
+      startDialogue('黑白小猫', '🐱', [
         '……你又来了。',
         '哦，你不是来拿快递的。你在找那只傻狗？',
       ], [
-        {text: '你认识金宝？', callback: () => {
+        {text: '你认识快乐小狗？', callback: () => {
           catDialoguePath1();
         }},
         {text: '你看起来很难过', callback: () => {
           catDialoguePath2();
         }},
-        {text: '我有金宝的项圈（出示）', callback: () => {
+        {text: '我有快乐小狗的项圈（出示）', callback: () => {
           catDialoguePath3();
         }},
       ]);
     } else if(G.flags.catTalked && G.questStage < 8){
-      startDialogue('黑白小猫·墨墨', '🐱', [
-        '你还没去SM商场吗？金宝被困在东侧仓库里，快去吧。',
+      startDialogue('黑白小猫', '🐱', [
+        '你还没去SM商场吗？快乐小狗被困在东侧仓库里，快去吧。',
         '从地下车库B2有个通道能直接进商场。',
       ]);
     } else if(G.questStage < 4){
-      startDialogue('黑白小猫·墨墨', '🐱', [
+      startDialogue('黑白小猫', '🐱', [
         '……你连它去了哪都不知道就来找我？',
         '去幼儿园那边看看吧，它今天早上去过那里。',
       ]);
     } else {
-      startDialogue('黑白小猫·墨墨', '🐱', ['……谢谢你。']);
+      startDialogue('黑白小猫', '🐱', ['……谢谢你。']);
     }
   }
 }
 
 function catDialoguePath1(){
-  startDialogue('黑白小猫·墨墨', '🐱', [
+  startDialogue('黑白小猫', '🐱', [
     '认识。那只傻狗，每天偷偷从茶叶店给我带饼干。它说我是它最好的朋友。',
     '可我连它走丢都没拦住……',
     '它追蝴蝶跑进了幼儿园，被一声巨响吓到，钻进了地下车库。',
@@ -1639,17 +1793,17 @@ function catDialoguePath1(){
     G.flags.catTalked = true;
     G.questStage = 7;
     G.flags.mallEastUnlocked = true;
-    showToast('墨墨指引：金宝在SM商场东侧仓库');
+    showToast('黑白小猫指引：快乐小狗在SM商场东侧仓库');
     updateQuestLog();
   });
 }
 
 function catDialoguePath2(){
-  startDialogue('黑白小猫·墨墨', '🐱', [
+  startDialogue('黑白小猫', '🐱', [
     '……难过？也许吧。',
-    '那只傻狗金宝，每天偷偷从茶叶店给我带饼干。它说我是它最好的朋友。',
+    '那只傻狗快乐小狗，每天偷偷从茶叶店给我带饼干。它说我是它最好的朋友。',
     '可我白天不敢出来……别的猫都笑我孤零零的。只有晚上才敢来这里待着。',
-    '今天早上金宝追蝴蝶跑进了幼儿园，被一声巨响吓到，钻进了地下车库。',
+    '今天早上快乐小狗追蝴蝶跑进了幼儿园，被一声巨响吓到，钻进了地下车库。',
     '它从B2的应急通道跑到了SM商场，被困在东侧仓库里了。',
     '求你，快去救它。从B2有个通道能直接进商场。',
   ], null, () => {
@@ -1657,15 +1811,15 @@ function catDialoguePath2(){
     G.questStage = 7;
     G.flags.mallEastUnlocked = true;
     G.clues.add('cat_friendship');
-    showToast('墨墨指引：金宝在SM商场东侧仓库');
-    showToast('隐藏线索：墨墨与金宝的友情');
+    showToast('黑白小猫指引：快乐小狗在SM商场东侧仓库');
+    showToast('隐藏线索：黑白小猫与快乐小狗的友情');
     updateQuestLog();
   });
 }
 
 function catDialoguePath3(){
-  startDialogue('黑白小猫·墨墨', '🐱', [
-    '……（嗅了嗅项圈）是金宝的味道。',
+  startDialogue('黑白小猫', '🐱', [
+    '……（嗅了嗅项圈）是快乐小狗的味道。',
     '它今天早上追蝴蝶跑进了幼儿园，被吓到后钻进了地下车库。',
     '从B2跑到了SM商场，被困在东侧仓库里了。',
     '你快去吧。它一定很害怕。',
@@ -1673,7 +1827,7 @@ function catDialoguePath3(){
     G.flags.catTalked = true;
     G.questStage = 7;
     G.flags.mallEastUnlocked = true;
-    showToast('墨墨指引：金宝在SM商场东侧仓库');
+    showToast('黑白小猫指引：快乐小狗在SM商场东侧仓库');
     updateQuestLog();
   });
 }
@@ -1689,7 +1843,7 @@ function interactTeacher(){
     ], null, () => {
       G.questStage = Math.max(G.questStage, 4);
       G.clues.add('teacher_seen');
-      showToast('线索：金宝受惊跑进地下车库');
+      showToast('线索：快乐小狗受惊跑进地下车库');
       updateQuestLog();
     });
   } else if(G.questStage >= 4 && G.questStage < 7){
@@ -1707,7 +1861,7 @@ function interactKgClue(){
     ], null, () => {
       G.clues.add('kg_fur');
       G.questStage = Math.max(G.questStage, 4);
-      showToast('线索：金宝受惊后跑向车库');
+      showToast('线索：快乐小狗受惊后跑向车库');
       updateQuestLog();
     });
   } else {
@@ -1729,7 +1883,7 @@ function interactB1Clue(){
       G.clues.add('b1_fur');
       G.questStage = 5;
       G.flags.b2Unlocked = true;
-      showToast('线索：金宝继续往下跑向B2');
+      showToast('线索：快乐小狗继续往下跑向B2');
       updateQuestLog();
     });
   } else {
@@ -1751,36 +1905,49 @@ function interactB2Clue(){
   if(G.questStage >= 5 && G.questStage < 7){
     startDialogue('旁白', '🔍', [
       'B2层最深处有一个应急出口的门，门是半开的。',
-      '门边的地上有爪印和蹭掉的泥，金宝显然从这里跑了出去。',
+      '门边的地上有爪印和蹭掉的泥，快乐小狗显然从这里跑了出去。',
       '门上写着"应急通道 → SM商场东侧"',
-      '但是商场那么大，金宝到底在哪里呢？需要更具体的信息……',
+      '但是商场那么大，快乐小狗到底在哪里呢？需要更具体的信息……',
       '也许该等天黑后去找那只猫问问。',
     ], null, () => {
       G.clues.add('b2_exit');
       G.questStage = Math.max(G.questStage, 6);
-      showToast('线索：金宝从B2跑向SM商场，但位置不明');
+      showToast('线索：快乐小狗从B2跑向SM商场，但位置不明');
       updateQuestLog();
     });
   } else if(G.questStage >= 7){
-    startDialogue('旁白', '🔍', ['应急出口的门半开着。墨墨说金宝在SM商场东侧仓库。快过去吧！']);
+    startDialogue('旁白', '🔍', ['应急出口的门半开着。黑白小猫说快乐小狗在SM商场东侧仓库。快过去吧！']);
   } else {
     startDialogue('旁白', '🔍', ['B2层很暗，没什么特别的。']);
   }
 }
 
 function interactB2Exit(){
-  if(G.questStage >= 7){
-    startDialogue('旁白', '🚪', ['应急通道门，通往SM商场东侧。'], [
-      {text: '进入SM商场', callback: () => { transitionToScene('sm_mall'); }},
-      {text: '先不进去', callback: () => {}},
-    ]);
-  } else if(G.questStage >= 6){
+  if(G.flags.circuitSolved){
+    if(G.questStage >= 7){
+      startDialogue('旁白', '🚪', ['应急通道门已开，通往SM商场东侧。'], [
+        {text: '进入SM商场', callback: () => { transitionToScene('sm_mall'); }},
+        {text: '先不进去', callback: () => {}},
+      ]);
+    } else if(G.questStage >= 6){
+      startDialogue('旁白', '🚪', [
+        '应急通道的门开了，通往SM商场。',
+        '但商场太大了，不知道快乐小狗在哪。也许夜晚那只猫知道些什么……',
+      ]);
+    } else {
+      startDialogue('旁白', '🚪', ['应急通道的门开着，但还不知道要去商场找什么。']);
+    }
+  } else if(G.questStage >= 5){
+    // Need to solve circuit puzzle
     startDialogue('旁白', '🚪', [
-      '应急通道的门半开着，通往SM商场。',
-      '但商场太大了，不知道金宝在哪。也许夜晚那只猫知道些什么……',
+      '应急通道的门锁着，上面有个电子锁。',
+      '电子锁显示"电路故障"，需要修复电路才能开门。',
+    ], [
+      {text: '尝试修复电路', callback: () => { interactB2Circuit(); }},
+      {text: '先不管', callback: () => {}},
     ]);
   } else {
-    startDialogue('旁白', '🚪', ['一扇紧闭的应急门。现在还用不上。']);
+    startDialogue('旁白', '🚪', ['一扇紧闭的应急门，上面有电子锁。现在还用不上。']);
   }
 }
 
@@ -1803,7 +1970,7 @@ function interactPuppySpot(){
   if(G.questStage >= 7 && !G.flags.puzzleSolved){
     startDialogue('旁白', '🐾', [
       '你来到SM商场东侧仓库。',
-      '隐约能听到货架后面传来微弱的呜咽声……金宝就在里面！',
+      '隐约能听到货架后面传来微弱的呜咽声……快乐小狗就在里面！',
       '但是面前堆满了货箱，挡住了去路。需要想办法挪开它们。',
     ], null, () => {
       // Trigger puzzle
@@ -1812,9 +1979,9 @@ function interactPuppySpot(){
       setTimeout(() => interactPuzzle(), 300);
     });
   } else if(G.flags.puzzleSolved && G.questStage < 8){
-    startDialogue('旁白', '🐾', ['路已经通了，快去救金宝！']);
+    startDialogue('旁白', '🐾', ['路已经通了，快去救快乐小狗！']);
   } else if(G.questStage >= 8){
-    startDialogue('旁白', '🐾', ['金宝就是在这里被找到的。']);
+    startDialogue('旁白', '🐾', ['快乐小狗就是在这里被找到的。']);
   } else {
     startDialogue('旁白', '🐾', ['SM商场东侧仓库，堆满了货箱。']);
   }
@@ -1826,7 +1993,7 @@ function interactPuzzle(){
     return;
   }
   if(G.questStage < 7){
-    startDialogue('旁白', '📦', ['一堆货箱挡住了去路。但现在还不知道金宝在哪，先去找线索吧。']);
+    startDialogue('旁白', '📦', ['一堆货箱挡住了去路。但现在还不知道快乐小狗在哪，先去找线索吧。']);
     return;
   }
   // Simple puzzle: push boxes
@@ -1882,20 +2049,56 @@ function renderPuzzleChoices(){
               startDialogue('旁白', '🎉', [
                 '货箱全部推开！路通了！',
                 '你快步走进仓库深处——',
-                '金宝！它正蜷缩在角落里，看到你的一瞬间，尾巴疯狂地摇了起来！',
+                '快乐小狗！它正蜷缩在角落里，看到你的一瞬间，尾巴疯狂地摇了起来！',
                 '它扑到你身上，开心地舔你的脸。虽然脏兮兮的，但精神很好。',
               ], null, () => {
                 G.questStage = 8;
                 G.flags.puppyFound = true;
-                showToast('找到金宝了！');
+                showToast('找到快乐小狗了！');
                 updateQuestLog();
                 setTimeout(() => {
-                  startDialogue('旁白', '🐾', [
-                    '你抱起金宝，它温顺地靠在你怀里。',
-                    '该把它送回陈记茶叶店了，老陈一定急坏了。',
-                  ], null, () => {
-                    transitionToScene('teashop');
-                  });
+                  // Check if player has conch (hidden ending path)
+                  if(G.inventory.conch && G.flags.capybaraRevealed){
+                    startDialogue('旁白', '🐾', [
+                      '你抱起快乐小狗，它温顺地靠在你怀里。',
+                      '你想起了卡皮巴拉的话——"在找到快乐小狗的时候，吹响海螺。"',
+                      '黑白小猫会听见的。它会来找它的家人。',
+                    ], [
+                      {text: '吹响海螺', callback: () => {
+                        G.flags.conchBlown = true;
+                        G.inventory.conch = false;
+                        updateInventory();
+                        startDialogue('旁白', '🐚', [
+                          '海螺发出悠远而清澈的声响，穿透了商场的墙壁，飘向远方。',
+                          '……',
+                          '片刻后，仓库门口传来细微的脚步声。',
+                          '一个黑白相间的小身影出现在门口——是黑白小猫！',
+                          '它看到快乐小狗的瞬间，发出一声长长的喵叫。',
+                          '快乐小狗从你怀里挣脱，扑向黑白小猫，两个小家伙紧紧依偎在一起。',
+                          '它们是家人。终于团聚了。',
+                          '【带快乐小狗和黑白小猫一起回茶叶店】',
+                        ], null, () => {
+                          G.flags.hiddenEnding = true;
+                          transitionToScene('teashop');
+                        });
+                      }},
+                      {text: '不吹海螺，直接送小狗回去', callback: () => {
+                        startDialogue('旁白', '🐾', [
+                          '你抱起快乐小狗，它温顺地靠在你怀里。',
+                          '该把它送回陈记茶叶店了，老陈一定急坏了。',
+                        ], null, () => {
+                          transitionToScene('teashop');
+                        });
+                      }},
+                    ]);
+                  } else {
+                    startDialogue('旁白', '🐾', [
+                      '你抱起快乐小狗，它温顺地靠在你怀里。',
+                      '该把它送回陈记茶叶店了，老陈一定急坏了。',
+                    ], null, () => {
+                      transitionToScene('teashop');
+                    });
+                  }
                 }, 500);
               });
             }, 500);
@@ -1950,7 +2153,7 @@ function interactPetFoodShelf(){
   const hasEither = G.inventory.dogFood || G.inventory.catFood;
   startDialogue('旁白', '📦', [
     '货架上摆着各种宠物食品。',
-    '有狗粮、猫粮、猫罐头……金宝爱吃狗粮，也许海边的小猫也饿了？',
+    '有狗粮、猫粮、猫罐头……快乐小狗爱吃狗粮，也许海边的小猫也饿了？',
   ], [
     {text: '买一袋狗粮（15元）', callback: () => {
       G.inventory.dogFood = true;
@@ -1982,6 +2185,7 @@ function interactPetFoodShelf(){
 function interactGatekeeper(){
   if(!G.flags.gatekeeperTalked){
     G.flags.gatekeeperTalked = true;
+    // First meeting - no cigarettes, no 荻花洲 mention
     startDialogue('门卫大爷', '👴', [
       '嘿，你干啥的？这边是幼儿园，闲人免进。',
       '地下车库？那更是不行，里面停的都是老师和住户的车，不能随便让人下去。',
@@ -1993,32 +2197,67 @@ function interactGatekeeper(){
     });
   } else if(!G.flags.garageUnlocked){
     if(G.inventory.cigarettes){
+      // Has cigarettes - show 荻花洲 content and buttons
       startDialogue('门卫大爷', '👴', [
-        '哟，你回来了？',
+        '哟，你弄来烟了？行行行，我看看。',
+        '对了，既然你有烟了，我跟你说个事。',
+        '车库东边那辆车，钥匙还插着呢，之前有人开着它去过海边——荻花洲，就在东边不远。',
+        '听说那边沙滩上最近有不少动物出没的痕迹，你要是找到狗了，说不定可以去那边看看。',
+        '你先把烟给我，我让你下去，车你自己开着去。',
       ], [
-        {text: '给大爷递上一包红梅烟', callback: () => {
+        {text: '给大爷递上红梅烟，下车库', callback: () => {
           G.inventory.cigarettes = false;
           updateInventory();
           G.flags.garageUnlocked = true;
+          G.flags.beachMentioned = true;
           startDialogue('门卫大爷', '👴', [
             '哎呦，红梅！好烟好烟！行了行了，你下去吧。',
             '我跟你说，今早那只大狗确实从操场跑下去了，钻进车库了。',
-            '车库东边有个出口能通到外边，你下去好好找找。',
-            '【地下车库已解锁】',
+            '车库东边那辆车能开，想去荻花洲就走东门通道。',
+            '【地下车库已解锁 · 荻花洲线索已开启】',
           ], null, () => {
             showToast('地下车库已解锁！');
+            showToast('新线索：荻花洲海边');
           });
         }},
-        {text: '先不给', callback: () => {}},
+        {text: '先不给，再问问荻花洲的事', callback: () => {
+          G.flags.beachMentioned = true;
+          startDialogue('门卫大爷', '👴', [
+            '荻花洲啊，就在东边海边，开车十分钟就到。',
+            '那边有沙滩、礁石、芦苇丛，风景不错。',
+            '最近听人说那边来了只很大的动物，整天趴在沙滩上不动，怪得很。',
+            '你要是有兴趣，把烟给我，下去开车就能去。',
+          ], [
+            {text: '给大爷递上红梅烟', callback: () => {
+              G.inventory.cigarettes = false;
+              updateInventory();
+              G.flags.garageUnlocked = true;
+              startDialogue('门卫大爷', '👴', [
+                '好烟好烟！行了，下去吧。',
+                '那辆车钥匙在点火器上，自己去荻花洲看看吧。',
+                '【地下车库已解锁】',
+              ], null, () => {
+                showToast('地下车库已解锁！');
+              });
+            }},
+            {text: '先不下去了', callback: () => {}},
+          ]);
+        }},
       ]);
     } else {
+      // No cigarettes - no 荻花洲 content or buttons
       startDialogue('门卫大爷', '👴', [
         '回来了？烟呢？没烟可别想下去。',
         '小区旁边有个好邻居超市，去那买包红梅来，我就让你过。',
       ]);
     }
   } else {
-    startDialogue('门卫大爷', '👴', ['下去吧，车库那边你自己当心点。那只狗应该还在下面。']);
+    // Garage already unlocked
+    if(G.flags.beachMentioned){
+      startDialogue('门卫大爷', '👴', ['下去吧，车库那边你自己当心点。那狗应该还在下面。想去荻花洲就开东边那辆车。']);
+    } else {
+      startDialogue('门卫大爷', '👴', ['下去吧，车库那边你自己当心点。那只狗应该还在下面。']);
+    }
   }
 }
 
@@ -2029,18 +2268,22 @@ function interactB1Car(){
     return;
   }
   if(!G.flags.beachUnlocked){
-    startDialogue('旁白', '🚗', [
+    var lines = [
       '一辆银灰色轿车停在车位上，车钥匙还插在点火器上。',
-      '似乎是谁停在这里忘记锁了……旁边贴着一张纸条："临时用车，去荻花洲方向请走东门通道"。',
-      '如果能开车的话，可以去荻花洲海边看看。',
-    ], [
-      {text: '开车去荻花洲', callback: () => {
+    ];
+    var choices = [];
+    if(G.flags.beachMentioned){
+      lines.push('门卫大爷说过，这辆车可以开去荻花洲海边。东门通道直通海边公路。');
+      choices.push({text: '开车去荻花洲', callback: () => {
         G.flags.beachUnlocked = true;
         showToast('解锁新地点：荻花洲');
         transitionToScene('beach');
-      }},
-      {text: '先不开车', callback: () => {}},
-    ]);
+      }});
+    } else {
+      lines.push('旁边贴着一张纸条，但字迹模糊看不清了。不知道这车能开去哪。');
+    }
+    choices.push({text: '先不开车', callback: () => {}});
+    startDialogue('旁白', '🚗', lines, choices);
   } else {
     startDialogue('旁白', '🚗', ['银灰色轿车，可以开车去荻花洲。'], [
       {text: '开车去荻花洲', callback: () => { transitionToScene('beach'); }},
@@ -2056,32 +2299,32 @@ function interactBeachSpot(){
     var lines = [
       '你来到荻花洲海边，海风吹拂着芦苇丛，发出沙沙的声响。',
       '沙滩上有一些凌乱的爪印，看起来是狗的脚印，从北边延伸过来，又在沙滩上转了几圈。',
-      '金宝确实来过这里！但爪印最终消失在了礁石方向……它似乎又回去了。',
+      '快乐小狗确实来过这里！但爪印最终消失在了礁石方向……它似乎又回去了。',
     ];
     if(G.inventory.dogFood){
-      lines.push('你放下一些狗粮，希望能引它回来，但金宝已经不在附近了。');
+      lines.push('你放下一些狗粮，希望能引它回来，但快乐小狗已经不在附近了。');
       lines.push('不过你注意到爪印旁边有一些猫的脚印——黑白相间的毛发粘在芦苇上。');
-      lines.push('看来那只黑白小猫也来过这里……也许它一直在跟踪金宝的踪迹。');
+      lines.push('看来那只黑白小猫也来过这里……也许它一直在跟踪快乐小狗的踪迹。');
       G.clues.add('beach_dogfood');
     }
     if(G.inventory.catFood){
       lines.push('你把猫粮放在礁石旁。过了一会儿，远处芦苇丛中传来窸窣声……');
-      lines.push('一个黑白相间的小身影探出头来——是墨墨！它小心翼翼地走过来吃猫粮。');
-      lines.push('墨墨吃完后看了你一眼，似乎不那么排斥你了。它转身走向南方，消失在芦苇中。');
+      lines.push('一个黑白相间的小身影探出头来——是黑白小猫！它小心翼翼地走过来吃猫粮。');
+      lines.push('黑白小猫吃完后看了你一眼，似乎不那么排斥你了。它转身走向南方，消失在芦苇中。');
       lines.push('也许今晚在快递驿站见到它时，它会更愿意开口。');
       G.clues.add('beach_catfood');
       G.clues.add('cat_friendship');
     }
-    lines.push('不管怎样，金宝似乎已经不在荻花洲了。该回车库继续追踪它的去向。');
+    lines.push('不管怎样，快乐小狗似乎已经不在荻花洲了。该回车库继续追踪它的去向。');
     startDialogue('旁白', '🏖️', lines, null, () => {
       G.clues.add('beach_visited');
-      showToast('线索：金宝来过荻花洲，但已经离开');
+      showToast('线索：快乐小狗来过荻花洲，但已经离开');
       updateQuestLog();
     });
   } else {
-    var extra = '沙滩上还有金宝留下的爪印痕迹。';
+    var extra = '沙滩上还有快乐小狗留下的爪印痕迹。';
     if(G.inventory.catFood && !G.clues.has('beach_catfood')){
-      extra += '也许可以放些猫粮引墨墨出来？';
+      extra += '也许可以放些猫粮引黑白小猫出来？';
     }
     startDialogue('旁白', '🏖️', [extra]);
   }
@@ -2094,11 +2337,970 @@ function interactBeachCar(){
   ]);
 }
 
+// ============================================================
+//  CAPYBARA & BEACH PUZZLES
+// ============================================================
+
+// Wrapper for NPC draw (capybara is awake after revealing truth)
+function drawCapybaraLazy(ctx, x, y){
+  drawCapybara(ctx, x, y, G.flags.capybaraRevealed);
+}
+
+// --- Capybara interaction ---
+function interactCapybara(){
+  if(!G.flags.capybaraMet){
+    G.flags.capybaraMet = true;
+    startDialogue('卡皮巴拉', '🦫', [
+      '……',
+      '（一只巨大的卡皮巴拉趴在沙滩中央，头顶顶着个小橘子，闭目养神。）',
+      '……你来了。',
+      '别紧张，我是这片海滩的守望者。你可以叫我卡皮巴拉。',
+      '你在找那只快乐小狗？我看见它经过这里了。也看见那只黑白小猫一路跟着它。',
+      '想让我告诉你真相？可以。但真相需要耐心和智慧来换取。',
+      '完成我的三道试炼，我就告诉你一切。',
+      '试炼一：贝壳推阵——把沙滩上的贝壳推入凹槽。',
+      '试炼二：礁石踏歌——按顺序踩亮礁石。',
+      '试炼三：芦苇回声——记住芦苇发光的顺序。',
+      '准备好了就去挑战吧。东边是贝壳，南边礁石，西边芦苇。',
+    ], null, () => {
+      showToast('卡皮巴拉的三道试炼已开启');
+    });
+    return;
+  }
+
+  var trialsDone = G.flags.trial1Done && G.flags.trial2Done && G.flags.trial3Done;
+  if(trialsDone && !G.flags.capybaraRevealed){
+    startDialogue('卡皮巴拉', '🦫', [
+      '……三道试炼，你都完成了。',
+      '（卡皮巴拉缓缓睁开眼睛，目光深邃而温和。）',
+      '你很有耐心。现在，我告诉你真相。',
+      '那只快乐小狗和那只黑白小猫，曾经是同一个主人养的伙伴。',
+      '它们的主人搬走了，把它们留在了小区里。',
+      '快乐小狗被茶叶店的老陈收留了，但黑白小猫一直不敢靠近人，只能在外面流浪。',
+      '快乐小狗每天偷偷从茶叶店带饼干出去，就是为了给黑白小猫吃。',
+      '它们不是朋友——它们是家人。唯一彼此拥有的家人。',
+      '这只海螺给你。在找到快乐小狗的时候，吹响它。',
+      '黑白小猫会听见的。它会来找它的家人。',
+      '【获得道具：海螺】',
+    ], null, () => {
+      G.flags.capybaraRevealed = true;
+      G.inventory.conch = true;
+      updateInventory();
+      showToast('获得道具：海螺');
+      showToast('隐藏剧情已解锁');
+    });
+    return;
+  }
+
+  if(G.flags.capybaraRevealed){
+    startDialogue('卡皮巴拉', '🦫', [
+      '……去吧。让它们团聚。',
+      '（卡皮巴拉闭上眼睛，继续它的冥想。海风轻拂。）',
+    ]);
+    return;
+  }
+
+  // Check progress
+  var progress = '试炼进度：';
+  progress += G.flags.trial1Done ? '贝壳✓ ' : '贝壳✗ ';
+  progress += G.flags.trial2Done ? '礁石✓ ' : '礁石✗ ';
+  progress += G.flags.trial3Done ? '芦苇✓' : '芦苇✗';
+  startDialogue('卡皮巴拉', '🦫', [
+    '……还在挑战试炼吗？',
+    progress,
+    '贝壳在东边，礁石在南边，芦苇在西边。去吧。',
+  ]);
+}
+
+// ============================================================
+//  PUZZLE 1: Shell Push (贝壳推阵)
+// ============================================================
+function interactShellPuzzle(){
+  if(G.flags.trial1Done){
+    startDialogue('旁白', '🐚', ['贝壳已经全部推入凹槽了。潮汐珠在凹槽中闪闪发光。']);
+    return;
+  }
+  if(!G.flags.capybaraMet){
+    startDialogue('旁白', '🐚', ['沙滩上散落着一些贝壳和凹槽。似乎是个谜题，但你还不知道规则。先去找卡皮巴拉聊聊吧。']);
+    return;
+  }
+  startDialogue('旁白', '🐚', [
+    '贝壳推阵——把5个贝壳推入5个凹槽中。',
+    '贝壳只能推不能拉。用方向键移动光标，按空格推动贝壳。',
+    '点击屏幕也可以移动光标和推动。',
+  ], null, () => {
+    startShellPuzzle();
+  });
+}
+
+function startShellPuzzle(){
+  G.state = 'minigame';
+  G.miniGame = {
+    type: 'shell',
+    grid: [
+      [0,0,0,0,0],
+      [0,0,0,0,0],
+      [0,0,0,0,0],
+      [0,0,0,0,0],
+      [0,0,0,0,0],
+    ],
+    // 1=shell, 2=slot, 3=shell in slot
+    cursor: {r:2, c:2},
+    moves: 0,
+    done: false,
+  };
+  // Place 5 shells
+  G.miniGame.grid[0][1] = 1;
+  G.miniGame.grid[0][3] = 1;
+  G.miniGame.grid[4][0] = 1;
+  G.miniGame.grid[4][2] = 1;
+  G.miniGame.grid[4][4] = 1;
+  // Place 5 slots
+  G.miniGame.grid[2][0] = 2;
+  G.miniGame.grid[2][1] = 2;
+  G.miniGame.grid[2][2] = 2;
+  G.miniGame.grid[2][3] = 2;
+  G.miniGame.grid[2][4] = 2;
+}
+
+function renderShellPuzzle(ctx){
+  var mg = G.miniGame;
+  var cellSize = 60;
+  var gridX = (CW - cellSize * 5) / 2;
+  var gridY = 80;
+  // Background
+  ctx.fillStyle = 'rgba(240,220,160,0.9)';
+  ctx.beginPath(); ctx.roundRect(gridX-10, gridY-10, cellSize*5+20, cellSize*5+20, 12); ctx.fill();
+  // Title
+  ctx.fillStyle = '#3d2914';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('贝壳推阵', CW/2, 50);
+  ctx.font = '13px sans-serif';
+  ctx.fillText('方向键移动光标 · 空格推动贝壳 · ESC退出', CW/2, 430);
+  ctx.fillText('步数: ' + mg.moves, CW/2, 455);
+  ctx.textAlign = 'left';
+
+  for(var r=0; r<5; r++){
+    for(var c=0; c<5; c++){
+      var x = gridX + c * cellSize;
+      var y = gridY + r * cellSize;
+      var val = mg.grid[r][c];
+      // cell background
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillRect(x+2, y+2, cellSize-4, cellSize-4);
+      // cursor highlight
+      if(mg.cursor.r === r && mg.cursor.c === c){
+        ctx.strokeStyle = '#d97757';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x+2, y+2, cellSize-4, cellSize-4);
+      }
+      // slot
+      if(val === 2 || val === 3){
+        ctx.strokeStyle = '#5a9ac4';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4,3]);
+        ctx.strokeRect(x+12, y+12, cellSize-24, cellSize-24);
+        ctx.setLineDash([]);
+      }
+      // shell
+      if(val === 1 || val === 3){
+        ctx.fillStyle = val === 3 ? '#ffd966' : '#f4e4c0';
+        ctx.beginPath();
+        ctx.arc(x + cellSize/2, y + cellSize/2, 16, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#c4a060';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x + cellSize/2, y + cellSize/2, 16, Math.PI*0.3, Math.PI*0.7);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x + cellSize/2, y + cellSize/2, 16, Math.PI*1.3, Math.PI*1.7);
+        ctx.stroke();
+      }
+    }
+  }
+  if(mg.done){
+    ctx.fillStyle = 'rgba(124,154,138,0.9)';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('试炼完成！获得潮汐珠', CW/2, 400);
+    ctx.textAlign = 'left';
+  }
+}
+
+function shellPuzzleInput(key){
+  var mg = G.miniGame;
+  if(mg.done) return;
+  var dr = 0, dc = 0;
+  if(key === 'arrowup' || key === 'w') dr = -1;
+  else if(key === 'arrowdown' || key === 's') dr = 1;
+  else if(key === 'arrowleft' || key === 'a') dc = -1;
+  else if(key === 'arrowright' || key === 'd') dc = 1;
+  else if(key === ' '){ tryPushShell(); return; }
+  else if(key === 'escape'){ exitMiniGame(); return; }
+  else return;
+  // Move cursor
+  mg.cursor.r = Math.max(0, Math.min(4, mg.cursor.r + dr));
+  mg.cursor.c = Math.max(0, Math.min(4, mg.cursor.c + dc));
+}
+
+function tryPushShell(){
+  var mg = G.miniGame;
+  var r = mg.cursor.r, c = mg.cursor.c;
+  if(mg.grid[r][c] !== 1){
+    showToast('光标位置没有贝壳');
+    return;
+  }
+  // Determine push direction based on last cursor movement
+  // Simplified: push away from center
+  var dirs = [];
+  if(c < 4 && mg.grid[r][c+1] !== 1) dirs.push([0,1]);
+  if(c > 0 && mg.grid[r][c-1] !== 1) dirs.push([0,-1]);
+  if(r < 4 && mg.grid[r+1][c] !== 1) dirs.push([1,0]);
+  if(r > 0 && mg.grid[r-1][c] !== 1) dirs.push([-1,0]);
+  if(dirs.length === 0){
+    showToast('贝壳被卡住了');
+    return;
+  }
+  // Show direction choices
+  G.state = 'dialogue';
+  document.getElementById('dialogueBox').classList.add('show');
+  G.dialogue = ['选择推动方向：'];
+  G.dlgIndex = 0;
+  G.dlgChoices = [];
+  G.dlgCallback = null;
+  document.getElementById('dlgName').textContent = '贝壳推阵';
+  document.getElementById('dlgAvatar').textContent = '🐚';
+  document.getElementById('dlgNext').style.display = 'none';
+  var choicesDiv = document.getElementById('dlgChoices');
+  choicesDiv.innerHTML = '';
+  document.getElementById('dlgText').textContent = '选择推动方向（贝壳在第' + (r+1) + '行第' + (c+1) + '列）：';
+  var dirLabels = {'0,1':'向右推', '0,-1':'向左推', '1,0':'向下推', '-1,0':'向上推'};
+  dirs.forEach(function(d){
+    var key = d[0]+','+d[1];
+    var btn = document.createElement('div');
+    btn.className = 'dlg-choice touch-btn';
+    btn.textContent = dirLabels[key];
+    btn.style.pointerEvents = 'auto';
+    btn.onclick = function(e){
+      e.stopPropagation();
+      doShellPush(r, c, d[0], d[1]);
+    };
+    choicesDiv.appendChild(btn);
+  });
+  // Cancel button
+  var cancelBtn = document.createElement('div');
+  cancelBtn.className = 'dlg-choice touch-btn';
+  cancelBtn.textContent = '取消';
+  cancelBtn.style.pointerEvents = 'auto';
+  cancelBtn.onclick = function(e){
+    e.stopPropagation();
+    endDialogue();
+    G.state = 'minigame';
+  };
+  choicesDiv.appendChild(cancelBtn);
+}
+
+function doShellPush(r, c, dr, dc){
+  var mg = G.miniGame;
+  var nr = r + dr, nc = c + dc;
+  // Check if target is valid (empty or slot)
+  if(nr < 0 || nr > 4 || nc < 0 || nc > 4) return;
+  var targetVal = mg.grid[nr][nc];
+  if(targetVal === 1 || targetVal === 3){
+    showToast('那边有贝壳挡着');
+    endDialogue();
+    G.state = 'minigame';
+    return;
+  }
+  // Move shell
+  var wasInSlot = mg.grid[r][c] === 3;
+  mg.grid[r][c] = wasInSlot ? 2 : 0;
+  if(targetVal === 2){
+    mg.grid[nr][nc] = 3; // shell in slot
+  } else {
+    mg.grid[nr][nc] = 1; // shell moved
+  }
+  mg.moves++;
+  mg.cursor.r = nr;
+  mg.cursor.c = nc;
+  endDialogue();
+  G.state = 'minigame';
+  // Check win
+  var count = 0;
+  for(var i=0; i<5; i++) for(var j=0; j<5; j++) if(mg.grid[i][j] === 3) count++;
+  if(count === 5){
+    mg.done = true;
+    setTimeout(function(){
+      G.flags.trial1Done = true;
+      G.inventory.tidePearl = true;
+      updateInventory();
+      showToast('获得道具：潮汐珠');
+      showToast('试炼一完成！');
+      exitMiniGame();
+      startDialogue('旁白', '🐚', [
+        '所有贝壳都推入了凹槽！',
+        '凹槽中亮起柔和的光芒，一颗晶莹的珠子浮现出来。',
+        '【获得道具：潮汐珠】',
+      ]);
+    }, 800);
+  }
+}
+
+// ============================================================
+//  PUZZLE 2: Reef Memory (礁石踏歌)
+// ============================================================
+function interactReefPuzzle(){
+  if(G.flags.trial2Done){
+    startDialogue('旁白', '🪨', ['礁石上的纹路已经全部亮起。海风羽在石上轻轻飘动。']);
+    return;
+  }
+  if(!G.flags.capybaraMet){
+    startDialogue('旁白', '🪨', ['一排礁石，上面刻着奇怪的纹路。先去找卡皮巴拉了解规则吧。']);
+    return;
+  }
+  startDialogue('旁白', '🪨', [
+    '礁石踏歌——记住礁石亮起的顺序，然后按相同顺序点击。',
+    '共3轮，每轮步数递增（4→6→8步）。',
+    '点击屏幕上的礁石来踩踏。',
+  ], null, () => {
+    startReefPuzzle();
+  });
+}
+
+function startReefPuzzle(){
+  G.state = 'minigame';
+  G.miniGame = {
+    type: 'reef',
+    phase: 'watch', // 'watch' or 'input'
+    round: 0,
+    sequence: [],
+    playerInput: [],
+    showIndex: 0,
+    showTimer: 0,
+    litCell: -1,
+    failed: false,
+    done: false,
+  };
+  generateReefSequence();
+}
+
+function generateReefSequence(){
+  var mg = G.miniGame;
+  mg.round++;
+  var steps = 3 + mg.round * 2; // round 1: 5, round 2: 7, round 3: 9 (simplified)
+  // Actually let's do: round 1: 4, round 2: 6, round 3: 8
+  steps = 2 + mg.round * 2;
+  mg.sequence = [];
+  for(var i=0; i<steps; i++){
+    mg.sequence.push(Math.floor(Math.random() * 9));
+  }
+  mg.playerInput = [];
+  mg.phase = 'watch';
+  mg.showIndex = 0;
+  mg.showTimer = 600;
+  mg.litCell = -1;
+}
+
+function renderReefPuzzle(ctx){
+  var mg = G.miniGame;
+  var cellSize = 80;
+  var gridX = (CW - cellSize * 3) / 2;
+  var gridY = 100;
+  // Title
+  ctx.fillStyle = '#3d2914';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('礁石踏歌', CW/2, 50);
+  ctx.font = '13px sans-serif';
+  var statusText = '';
+  if(mg.phase === 'watch'){
+    statusText = '第' + mg.round + '/3轮 · 观看顺序 (' + (mg.showIndex) + '/' + mg.sequence.length + ')';
+  } else if(mg.phase === 'input'){
+    statusText = '第' + mg.round + '/3轮 · 请踩礁石 (' + mg.playerInput.length + '/' + mg.sequence.length + ')';
+  } else if(mg.failed){
+    statusText = '顺序错误！重新开始...';
+  } else if(mg.done){
+    statusText = '试炼完成！';
+  }
+  ctx.fillText(statusText, CW/2, 75);
+  ctx.textAlign = 'left';
+
+  for(var i=0; i<9; i++){
+    var r = Math.floor(i/3), c = i%3;
+    var x = gridX + c * cellSize;
+    var y = gridY + r * cellSize;
+    var isLit = mg.litCell === i;
+    // Reef rock
+    ctx.fillStyle = isLit ? '#ffd966' : '#8a8070';
+    ctx.beginPath();
+    ctx.ellipse(x + cellSize/2, y + cellSize/2, 28, 24, 0, 0, Math.PI*2);
+    ctx.fill();
+    if(isLit){
+      ctx.fillStyle = 'rgba(255,217,102,0.3)';
+      ctx.beginPath();
+      ctx.arc(x + cellSize/2, y + cellSize/2, 40, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // number
+    ctx.fillStyle = isLit ? '#3d2914' : '#aaa';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(i+1, x + cellSize/2, y + cellSize/2 + 5);
+    ctx.textAlign = 'left';
+  }
+  if(mg.done){
+    ctx.fillStyle = 'rgba(124,154,138,0.9)';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('试炼完成！获得海风羽', CW/2, 420);
+    ctx.textAlign = 'left';
+  }
+}
+
+function updateReefPuzzle(dt){
+  var mg = G.miniGame;
+  if(mg.done || mg.failed) return;
+  if(mg.phase === 'watch'){
+    mg.showTimer -= dt;
+    if(mg.showTimer <= 0){
+      if(mg.showIndex < mg.sequence.length){
+        mg.litCell = mg.sequence[mg.showIndex];
+        mg.showIndex++;
+        mg.showTimer = 700;
+      } else {
+        mg.litCell = -1;
+        mg.phase = 'input';
+        mg.showTimer = 0;
+      }
+    } else if(mg.showTimer < 300){
+      mg.litCell = -1;
+    }
+  } else if(mg.failed){
+    mg.showTimer -= dt;
+    if(mg.showTimer <= 0){
+      mg.failed = false;
+      generateReefSequence();
+    }
+  }
+}
+
+function reefPuzzleClick(x, y){
+  var mg = G.miniGame;
+  if(mg.phase !== 'input' || mg.done) return;
+  var cellSize = 80;
+  var gridX = (CW - cellSize * 3) / 2;
+  var gridY = 100;
+  for(var i=0; i<9; i++){
+    var r = Math.floor(i/3), c = i%3;
+    var cx = gridX + c * cellSize + cellSize/2;
+    var cy = gridY + r * cellSize + cellSize/2;
+    if(Math.abs(x - cx) < 30 && Math.abs(y - cy) < 30){
+      mg.litCell = i;
+      setTimeout(function(){ mg.litCell = -1; }, 300);
+      mg.playerInput.push(i);
+      // Check correctness
+      var idx = mg.playerInput.length - 1;
+      if(mg.playerInput[idx] !== mg.sequence[idx]){
+        mg.failed = true;
+        mg.showTimer = 1500;
+        mg.playerInput = [];
+        showToast('顺序错误！重新开始本轮');
+        return;
+      }
+      // Check round complete
+      if(mg.playerInput.length === mg.sequence.length){
+        if(mg.round >= 3){
+          // All rounds done!
+          mg.done = true;
+          mg.phase = 'done';
+          setTimeout(function(){
+            G.flags.trial2Done = true;
+            G.inventory.seaFeather = true;
+            updateInventory();
+            showToast('获得道具：海风羽');
+            showToast('试炼二完成！');
+            exitMiniGame();
+            startDialogue('旁白', '🪨', [
+              '所有礁石都按正确顺序亮起了！',
+              '一块礁石裂开，飘出一根轻盈的羽毛。',
+              '【获得道具：海风羽】',
+            ]);
+          }, 800);
+        } else {
+          showToast('第' + mg.round + '轮完成！');
+          setTimeout(function(){ generateReefSequence(); }, 1000);
+        }
+      }
+      return;
+    }
+  }
+}
+
+// ============================================================
+//  PUZZLE 3: Reed Echo (芦苇回声)
+// ============================================================
+function interactReedPuzzle(){
+  if(G.flags.trial3Done){
+    startDialogue('旁白', '🌿', ['芦苇丛安静地摇曳着。月光露在芦苇尖上闪烁。']);
+    return;
+  }
+  if(!G.flags.capybaraMet){
+    startDialogue('旁白', '🌿', ['一片芦苇丛，随风摇曳。先去找卡皮巴拉了解规则吧。']);
+    return;
+  }
+  startDialogue('旁白', '🌿', [
+    '芦苇回声——记住芦苇发光的顺序，然后按相同顺序点击。',
+    '共3轮，每轮步数递增。',
+    '点击屏幕上的芦苇来触发。',
+  ], null, () => {
+    startReedPuzzle();
+  });
+}
+
+function startReedPuzzle(){
+  G.state = 'minigame';
+  G.miniGame = {
+    type: 'reed',
+    phase: 'watch',
+    round: 0,
+    sequence: [],
+    playerInput: [],
+    showIndex: 0,
+    showTimer: 0,
+    litCell: -1,
+    failed: false,
+    done: false,
+  };
+  generateReedSequence();
+}
+
+function generateReedSequence(){
+  var mg = G.miniGame;
+  mg.round++;
+  var steps = 2 + mg.round * 2; // 4, 6, 8
+  mg.sequence = [];
+  for(var i=0; i<steps; i++){
+    mg.sequence.push(Math.floor(Math.random() * 5));
+  }
+  mg.playerInput = [];
+  mg.phase = 'watch';
+  mg.showIndex = 0;
+  mg.showTimer = 600;
+  mg.litCell = -1;
+}
+
+function renderReedPuzzle(ctx){
+  var mg = G.miniGame;
+  var reedSpacing = 130;
+  var startX = (CW - reedSpacing * 4) / 2;
+  var baseY = 280;
+  // Title
+  ctx.fillStyle = '#3d2914';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('芦苇回声', CW/2, 50);
+  ctx.font = '13px sans-serif';
+  var statusText = '';
+  if(mg.phase === 'watch'){
+    statusText = '第' + mg.round + '/3轮 · 观看顺序 (' + mg.showIndex + '/' + mg.sequence.length + ')';
+  } else if(mg.phase === 'input'){
+    statusText = '第' + mg.round + '/3轮 · 请点击芦苇 (' + mg.playerInput.length + '/' + mg.sequence.length + ')';
+  } else if(mg.failed){
+    statusText = '顺序错误！重新开始...';
+  } else if(mg.done){
+    statusText = '试炼完成！';
+  }
+  ctx.fillText(statusText, CW/2, 75);
+  ctx.textAlign = 'left';
+
+  for(var i=0; i<5; i++){
+    var x = startX + i * reedSpacing;
+    var isLit = mg.litCell === i;
+    // reed stem
+    ctx.strokeStyle = isLit ? '#ffd966' : '#7a8a5a';
+    ctx.lineWidth = isLit ? 5 : 3;
+    ctx.beginPath();
+    ctx.moveTo(x, baseY + 80);
+    ctx.quadraticCurveTo(x + (isLit ? Math.sin(Date.now()/100)*5 : 0), baseY, x, baseY - 60);
+    ctx.stroke();
+    // reed top (fluffy)
+    ctx.fillStyle = isLit ? '#ffe8a0' : '#c4b890';
+    ctx.beginPath();
+    ctx.ellipse(x, baseY - 60, 8, 18, 0, 0, Math.PI*2);
+    ctx.fill();
+    // glow when lit
+    if(isLit){
+      ctx.fillStyle = 'rgba(255,217,102,0.2)';
+      ctx.beginPath();
+      ctx.arc(x, baseY - 40, 40, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // number
+    ctx.fillStyle = isLit ? '#3d2914' : '#999';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(i+1, x, baseY + 100);
+    ctx.textAlign = 'left';
+  }
+  if(mg.done){
+    ctx.fillStyle = 'rgba(124,154,138,0.9)';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('试炼完成！获得月光露', CW/2, 420);
+    ctx.textAlign = 'left';
+  }
+}
+
+function updateReedPuzzle(dt){
+  var mg = G.miniGame;
+  if(mg.done || mg.failed) return;
+  if(mg.phase === 'watch'){
+    mg.showTimer -= dt;
+    if(mg.showTimer <= 0){
+      if(mg.showIndex < mg.sequence.length){
+        mg.litCell = mg.sequence[mg.showIndex];
+        mg.showIndex++;
+        mg.showTimer = 700;
+      } else {
+        mg.litCell = -1;
+        mg.phase = 'input';
+        mg.showTimer = 0;
+      }
+    } else if(mg.showTimer < 300){
+      mg.litCell = -1;
+    }
+  } else if(mg.failed){
+    mg.showTimer -= dt;
+    if(mg.showTimer <= 0){
+      mg.failed = false;
+      generateReedSequence();
+    }
+  }
+}
+
+function reedPuzzleClick(x, y){
+  var mg = G.miniGame;
+  if(mg.phase !== 'input' || mg.done) return;
+  var reedSpacing = 130;
+  var startX = (CW - reedSpacing * 4) / 2;
+  var baseY = 280;
+  for(var i=0; i<5; i++){
+    var cx = startX + i * reedSpacing;
+    if(Math.abs(x - cx) < 50 && y > baseY - 80 && y < baseY + 100){
+      mg.litCell = i;
+      setTimeout(function(){ mg.litCell = -1; }, 300);
+      mg.playerInput.push(i);
+      var idx = mg.playerInput.length - 1;
+      if(mg.playerInput[idx] !== mg.sequence[idx]){
+        mg.failed = true;
+        mg.showTimer = 1500;
+        mg.playerInput = [];
+        showToast('顺序错误！重新开始本轮');
+        return;
+      }
+      if(mg.playerInput.length === mg.sequence.length){
+        if(mg.round >= 3){
+          mg.done = true;
+          mg.phase = 'done';
+          setTimeout(function(){
+            G.flags.trial3Done = true;
+            G.inventory.moonDew = true;
+            updateInventory();
+            showToast('获得道具：月光露');
+            showToast('试炼三完成！');
+            exitMiniGame();
+            startDialogue('旁白', '🌿', [
+              '所有芦苇都按正确顺序发光了！',
+              '一滴晶莹的露水从芦苇尖上滑落。',
+              '【获得道具：月光露】',
+              '三道试炼全部完成！回去找卡皮巴拉吧。',
+            ]);
+          }, 800);
+        } else {
+          showToast('第' + mg.round + '轮完成！');
+          setTimeout(function(){ generateReedSequence(); }, 1000);
+        }
+      }
+      return;
+    }
+  }
+}
+
+// ============================================================
+//  PUZZLE 4: B2 Circuit (电路连线)
+// ============================================================
+function interactB2Circuit(){
+  if(G.flags.circuitSolved){
+    startDialogue('旁白', '⚡', ['电路已经连通，应急门开着。']);
+    return;
+  }
+  startDialogue('旁白', '⚡', [
+    '应急门的电子锁需要通电才能打开。',
+    '电路管道断了，需要旋转管道让电流从电源通到门锁。',
+    '点击管道来旋转90度。',
+  ], null, () => {
+    startCircuitPuzzle();
+  });
+}
+
+function startCircuitPuzzle(){
+  G.state = 'minigame';
+  // 4x4 grid of pipe tiles
+  // Each tile has connections: 0=none, 1=top, 2=right, 4=bottom, 8=left
+  // Rotate = shift bits left by 1 (within 4 bits)
+  G.miniGame = {
+    type: 'circuit',
+    tiles: [
+      // row 0: source on left
+      {conn: 2, fixed: true},  // source → right
+      {conn: 10, fixed: false}, // left+right
+      {conn: 5, fixed: false},  // top+bottom
+      {conn: 0, fixed: true},   // empty
+      // row 1
+      {conn: 0, fixed: true},
+      {conn: 10, fixed: false},
+      {conn: 10, fixed: false},
+      {conn: 0, fixed: true},
+      // row 2
+      {conn: 0, fixed: true},
+      {conn: 0, fixed: true},
+      {conn: 12, fixed: false}, // left+bottom
+      {conn: 0, fixed: true},
+      // row 3: target on right
+      {conn: 0, fixed: true},
+      {conn: 0, fixed: true},
+      {conn: 3, fixed: false},  // top+right (to target)
+      {conn: 8, fixed: true},   // target ← left
+    ],
+    done: false,
+  };
+  // Shuffle non-fixed tiles
+  for(var i=0; i<G.miniGame.tiles.length; i++){
+    if(!G.miniGame.tiles[i].fixed){
+      var rotations = Math.floor(Math.random() * 4);
+      for(var j=0; j<rotations; j++){
+        G.miniGame.tiles[i].conn = rotateConn(G.miniGame.tiles[i].conn);
+      }
+    }
+  }
+}
+
+function rotateConn(c){
+  // Rotate 90 degrees clockwise: top→right→bottom→left→top
+  // bits: 1=top, 2=right, 4=bottom, 8=left
+  return ((c << 1) | (c >> 3)) & 0xF;
+}
+
+function renderCircuitPuzzle(ctx){
+  var mg = G.miniGame;
+  var cellSize = 90;
+  var gridX = (CW - cellSize * 4) / 2;
+  var gridY = 90;
+  // Title
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('电路连线', CW/2, 50);
+  ctx.font = '13px sans-serif';
+  ctx.fillText('点击管道旋转 · 让电流从⚡通到🔒', CW/2, 470);
+  ctx.textAlign = 'left';
+
+  // Check if solved
+  var solved = checkCircuit();
+  if(solved && !mg.done){
+    mg.done = true;
+    setTimeout(function(){
+      G.flags.circuitSolved = true;
+      showToast('电路连通！应急门解锁');
+      exitMiniGame();
+      startDialogue('旁白', '⚡', [
+        '电流贯通！应急门发出"咔嗒"一声，缓缓打开了。',
+        '门上写着"应急通道 → SM商场东侧"',
+        '可以通过这里前往SM商场了。',
+      ], null, () => {
+        G.flags.b2Unlocked = true;
+      });
+    }, 800);
+  }
+
+  for(var r=0; r<4; r++){
+    for(var c=0; c<4; c++){
+      var idx = r * 4 + c;
+      var tile = mg.tiles[idx];
+      var x = gridX + c * cellSize;
+      var y = gridY + r * cellSize;
+      // cell bg
+      ctx.fillStyle = solved ? 'rgba(124,154,138,0.2)' : 'rgba(255,255,255,0.1)';
+      ctx.fillRect(x+3, y+3, cellSize-6, cellSize-6);
+      // Draw source
+      if(idx === 0){
+        ctx.fillStyle = '#ffd966';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚡', x + cellSize/2, y + cellSize/2 + 7);
+        ctx.textAlign = 'left';
+      }
+      // Draw target
+      if(idx === 15){
+        ctx.fillStyle = solved ? '#7c9a8a' : '#d97757';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🔒', x + cellSize/2, y + cellSize/2 + 7);
+        ctx.textAlign = 'left';
+      }
+      // Draw pipes
+      var conn = tile.conn;
+      var cx = x + cellSize/2, cy = y + cellSize/2;
+      ctx.strokeStyle = solved ? '#ffd966' : '#5a9ac4';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      if(conn & 1){ // top
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, y+3); ctx.stroke();
+      }
+      if(conn & 2){ // right
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x+cellSize-3, cy); ctx.stroke();
+      }
+      if(conn & 4){ // bottom
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, y+cellSize-3); ctx.stroke();
+      }
+      if(conn & 8){ // left
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x+3, cy); ctx.stroke();
+      }
+      // center dot
+      if(conn > 0){
+        ctx.fillStyle = solved ? '#ffd966' : '#5a9ac4';
+        ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+      }
+      // Fixed indicator
+      if(tile.fixed && idx !== 0 && idx !== 15 && conn > 0){
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('固定', cx, y + 14);
+        ctx.textAlign = 'left';
+      }
+    }
+  }
+}
+
+function checkCircuit(){
+  var mg = G.miniGame;
+  // BFS from source (tile 0) to target (tile 15)
+  var visited = new Set();
+  var queue = [0];
+  visited.add(0);
+  while(queue.length > 0){
+    var idx = queue.shift();
+    var r = Math.floor(idx/4), c = idx%4;
+    var conn = mg.tiles[idx].conn;
+    // Check neighbors
+    // Top (conn & 1) → neighbor at r-1,c needs (conn & 4)
+    if((conn & 1) && r > 0){
+      var nIdx = (r-1)*4 + c;
+      if(!visited.has(nIdx) && (mg.tiles[nIdx].conn & 4)){
+        visited.add(nIdx);
+        queue.push(nIdx);
+      }
+    }
+    // Right (conn & 2) → neighbor at r,c+1 needs (conn & 8)
+    if((conn & 2) && c < 3){
+      var nIdx2 = r*4 + (c+1);
+      if(!visited.has(nIdx2) && (mg.tiles[nIdx2].conn & 8)){
+        visited.add(nIdx2);
+        queue.push(nIdx2);
+      }
+    }
+    // Bottom (conn & 4) → neighbor at r+1,c needs (conn & 1)
+    if((conn & 4) && r < 3){
+      var nIdx3 = (r+1)*4 + c;
+      if(!visited.has(nIdx3) && (mg.tiles[nIdx3].conn & 1)){
+        visited.add(nIdx3);
+        queue.push(nIdx3);
+      }
+    }
+    // Left (conn & 8) → neighbor at r,c-1 needs (conn & 2)
+    if((conn & 8) && c > 0){
+      var nIdx4 = r*4 + (c-1);
+      if(!visited.has(nIdx4) && (mg.tiles[nIdx4].conn & 2)){
+        visited.add(nIdx4);
+        queue.push(nIdx4);
+      }
+    }
+  }
+  return visited.has(15);
+}
+
+function circuitPuzzleClick(x, y){
+  var mg = G.miniGame;
+  if(mg.done) return;
+  var cellSize = 90;
+  var gridX = (CW - cellSize * 4) / 2;
+  var gridY = 90;
+  for(var r=0; r<4; r++){
+    for(var c=0; c<4; c++){
+      var cx = gridX + c * cellSize;
+      var cy = gridY + r * cellSize;
+      if(x > cx && x < cx + cellSize && y > cy && y < cy + cellSize){
+        var idx = r * 4 + c;
+        if(!mg.tiles[idx].fixed){
+          mg.tiles[idx].conn = rotateConn(mg.tiles[idx].conn);
+        }
+        return;
+      }
+    }
+  }
+}
+
+// ============================================================
+//  MINIGAME HELPERS
+// ============================================================
+function exitMiniGame(){
+  G.miniGame = null;
+  G.state = 'playing';
+}
+
+function renderMiniGame(ctx){
+  if(!G.miniGame) return;
+  // Dark overlay
+  ctx.fillStyle = 'rgba(20,15,10,0.85)';
+  ctx.fillRect(0, 0, CW, CH);
+  switch(G.miniGame.type){
+    case 'shell': renderShellPuzzle(ctx); break;
+    case 'reef': renderReefPuzzle(ctx); break;
+    case 'reed': renderReedPuzzle(ctx); break;
+    case 'circuit': renderCircuitPuzzle(ctx); break;
+  }
+}
+
+function updateMiniGame(dt){
+  if(!G.miniGame) return;
+  switch(G.miniGame.type){
+    case 'reef': updateReefPuzzle(dt); break;
+    case 'reed': updateReedPuzzle(dt); break;
+  }
+}
+
+function miniGameCanvasClick(x, y){
+  if(!G.miniGame) return false;
+  switch(G.miniGame.type){
+    case 'reef': reefPuzzleClick(x, y); return true;
+    case 'reed': reedPuzzleClick(x, y); return true;
+    case 'circuit': circuitPuzzleClick(x, y); return true;
+  }
+  return false;
+}
+
 // --- Inventory UI update ---
 function updateInventory(){
   document.getElementById('invCigarettes').classList.toggle('show', G.inventory.cigarettes);
   document.getElementById('invDogFood').classList.toggle('show', G.inventory.dogFood);
   document.getElementById('invCatFood').classList.toggle('show', G.inventory.catFood);
+  document.getElementById('invConch').classList.toggle('show', G.inventory.conch);
+  document.getElementById('invTidePearl').classList.toggle('show', G.inventory.tidePearl);
+  document.getElementById('invSeaFeather').classList.toggle('show', G.inventory.seaFeather);
+  document.getElementById('invMoonDew').classList.toggle('show', G.inventory.moonDew);
 }
 
 // --- Time skip ---
@@ -2119,17 +3321,18 @@ function skipHours(h){
 // ============================================================
 const questSteps = [
   {id:'accept', text:'在茶叶店接受老陈的委托', hint:'前往天成花园小区旁的茶叶店'},
-  {id:'pawprints', text:'在小区寻找金宝的踪迹', hint:'调查小区地上的爪印'},
-  {id:'wang', text:'询问小区居民是否目击金宝', hint:'和王阿姨聊聊'},
-  {id:'kindergarten', text:'前往幼儿园调查', hint:'金宝追蝴蝶去了幼儿园'},
+  {id:'pawprints', text:'在小区寻找快乐小狗的踪迹', hint:'调查小区地上的爪印'},
+  {id:'wang', text:'询问小区居民是否目击快乐小狗', hint:'和王阿姨聊聊'},
+  {id:'kindergarten', text:'前往幼儿园调查', hint:'快乐小狗追蝴蝶去了幼儿园'},
   {id:'supermarket', text:'去超市买烟贿赂门卫大爷', hint:'小区西侧好邻居超市，买包红梅烟', optional:false},
   {id:'gatekeeper', text:'给门卫大爷送烟解锁车库', hint:'回幼儿园找门卫大爷，把烟给他'},
-  {id:'parking', text:'进入地下车库追踪金宝', hint:'从幼儿园东门进入地下车库B1'},
+  {id:'parking', text:'进入地下车库追踪快乐小狗', hint:'从幼儿园东门进入地下车库B1'},
   {id:'beach', text:'（支线）开车去荻花洲寻找线索', hint:'B1层找到车，开车去海边查看爪印', optional:true},
-  {id:'b2', text:'在B2层寻找金宝的去向', hint:'下到B2层调查应急出口'},
-  {id:'cat', text:'夜晚去快递驿站找黑白小猫', hint:'22:00后在快递驿站寻找墨墨，可用时间跳过'},
-  {id:'mall', text:'前往SM商场东侧仓库救出金宝', hint:'从B2应急通道进入SM商场'},
-  {id:'return', text:'将金宝送回茶叶店', hint:'回到陈记茶叶店找老陈'},
+  {id:'capybara', text:'（支线）完成卡皮巴拉的三道试炼', hint:'在荻花洲找卡皮巴拉，完成贝壳/礁石/芦苇谜题', optional:true},
+  {id:'b2', text:'在B2层修复电路并寻找快乐小狗去向', hint:'下到B2层，旋转管道连通电路，调查应急出口'},
+  {id:'cat', text:'夜晚去快递驿站找黑白小猫', hint:'22:00后在快递驿站寻找黑白小猫，可用时间跳过'},
+  {id:'mall', text:'前往SM商场东侧仓库救出快乐小狗', hint:'从B2应急通道进入SM商场，推箱子救出快乐小狗'},
+  {id:'return', text:'将快乐小狗送回茶叶店', hint:'回到陈记茶叶店找老陈（有海螺可吹响触发隐藏结局）'},
 ];
 
 function updateQuestLog(){
@@ -2220,7 +3423,7 @@ function restToNight(){
   setTimeout(() => {
     G.time = 22.0;
     document.getElementById('transition').classList.remove('show');
-    if(isNight()) showToast('夜幕降临，墨墨应该出现在快递驿站了');
+    if(isNight()) showToast('夜幕降临，黑白小猫应该出现在快递驿站了');
   }, 1200);
 }
 
@@ -2263,22 +3466,38 @@ function startGame(){
 
 function showEnding(goodEnding){
   document.getElementById('endingScreen').classList.add('show');
-  if(goodEnding){
+  if(G.flags.hiddenEnding){
     document.getElementById('endingText').innerHTML = `
-      你找到了金宝，并让它和墨墨重新建立了联系。<br><br>
-      老陈每天都会给墨墨留饼干，<br>
-      金宝也常常去找墨墨玩耍。<br><br>
+      海螺的回声穿过商场，穿过街道，穿过芦苇丛。<br><br>
+      黑白小猫循着声音找到了快乐小狗，<br>
+      两个小家伙紧紧依偎在一起，再也不愿分开。<br><br>
+      老陈收养了黑白小猫，茶叶店从此多了个小小的常客。<br>
+      快乐小狗每天依然会偷带饼干——不过这次，<br>
+      它会把饼干放在黑白小猫的窝旁边，<br>
+      然后心满意足地趴在一旁。<br><br>
+      荻花洲的沙滩上，卡皮巴拉头顶顶着橘子，<br>
+      闭着眼睛，嘴角似乎微微上扬。<br><br>
+      <strong style="color:#ffd966">【隐藏结局·海之羁绊：永恒的家人】</strong>
+    `;
+  } else if(goodEnding){
+    document.getElementById('endingText').innerHTML = `
+      你找到了快乐小狗，并让它和黑白小猫重新建立了联系。<br><br>
+      老陈每天都会给黑白小猫留饼干，<br>
+      快乐小狗也常常去找黑白小猫玩耍。<br><br>
       有时候，一次寻找不只是找回丢失的东西，<br>
       更是找回被忽略的温暖。<br><br>
-      <strong style="color:#ffd966">【隐藏成就：猫狗情谊】</strong>
+      <strong style="color:#ffd966">【结局：猫狗情谊】</strong><br>
+      <span style="color:rgba(255,255,255,0.5);font-size:13px;">提示：完成卡皮巴拉的三道试炼，吹响海螺，可解锁隐藏结局</span>
     `;
   } else {
     document.getElementById('endingText').innerHTML = `
-      你在SM商场的仓库里找到了金宝，<br>
+      你在SM商场的仓库里找到了快乐小狗，<br>
       把它安全送回了茶叶店。<br><br>
-      老陈非常开心，金宝又恢复了往日的笑容。<br><br>
+      老陈非常开心，快乐小狗又恢复了往日的笑容。<br><br>
       也许下次可以多留意身边那些<br>
-      默默存在的小家伙们……
+      默默存在的小家伙们……<br><br>
+      <strong style="color:#ffd966">【普通结局】</strong><br>
+      <span style="color:rgba(255,255,255,0.5);font-size:13px;">提示：完成卡皮巴拉的三道试炼，吹响海螺，可解锁隐藏结局</span>
     `;
   }
 }
@@ -2296,6 +3515,11 @@ function gameLoop(timestamp){
   }
   if(G.state === 'playing' || G.state === 'dialogue'){
     render();
+  }
+  if(G.state === 'minigame'){
+    updateMiniGame(dt);
+    render();
+    renderMiniGame(ctx);
   }
   
   // Toast timer
@@ -2482,7 +3706,7 @@ function render(){
       ctx.roundRect(catX - 40, catY - 42, 80, 16, 4);
       ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.fillText('黑白小猫·墨墨', catX, catY - 30);
+      ctx.fillText('黑白小猫', catX, catY - 30);
       ctx.textAlign = 'left';
     }
   }
