@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.3.0" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.4.0" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.3.0-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.4.0-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.3.0-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.4.0-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -315,6 +315,7 @@ canvas.height = CH;
 // 横屏/宽屏: contain等比缩放，完整显示不裁剪
 // canvas内部分辨率 = CSS尺寸 × DPR = 屏幕物理像素，实现1:1像素级清晰渲染
 var renderScale = 1;
+var renderScaleX = 1, renderScaleY = 1; // 非等比缩放（竖屏填满屏幕用）
 var dpr = window.devicePixelRatio || 1;
 // 辅助函数：确保字体在CSS层面不小于minCssPx，避免手机缩放后字体太小看不清
 function scaledFont(baseGamePx, minCssPx) {
@@ -333,27 +334,25 @@ function resizeCanvas(){
   var isPortrait = wh > ww; // 竖屏
   
   if(isPortrait){
-    // 竖屏: 按宽度缩放填满屏幕宽度，高度居中偏上（给底部Safari地址栏留空间）
-    var scale = ww / CW;
-    var scaledW = CW * scale; // = ww
-    var scaledH = CH * scale; // 600 * (ww/800) < wh，高度不足有黑边
-    var offsetX = 0;
-    // 往上偏移：底部多留空间给Safari地址栏，顶部少留空间
-    var spareVertical = wh - scaledH;
-    var offsetY = spareVertical > 0 ? spareVertical * 0.3 : 0;
-    var cw = Math.round(scaledW * dpr);
-    var ch = Math.round(scaledH * dpr);
+    // 竖屏: 填满整个屏幕，X/Y独立缩放，最大化屏幕利用率
+    // 游戏画面会纵向略拉伸但填满全屏，比小窗口清晰得多
+    var scaleX = ww / CW;
+    var scaleY = wh / CH;
+    var cw = Math.round(ww * dpr);
+    var ch = Math.round(wh * dpr);
     if(canvas.width !== cw || canvas.height !== ch){
       canvas.width = cw;
       canvas.height = ch;
     }
-    canvas.style.width = scaledW + 'px';
-    canvas.style.height = scaledH + 'px';
+    canvas.style.width = ww + 'px';
+    canvas.style.height = wh + 'px';
     canvas.style.position = 'fixed';
-    canvas.style.left = offsetX + 'px';
-    canvas.style.top = offsetY + 'px';
-    renderScale = scale * dpr;
-    ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+    canvas.style.left = '0px';
+    canvas.style.top = '0px';
+    renderScaleX = scaleX * dpr;
+    renderScaleY = scaleY * dpr;
+    renderScale = Math.min(renderScaleX, renderScaleY);
+    ctx.setTransform(renderScaleX, 0, 0, renderScaleY, 0, 0);
   } else {
     // 横屏: contain模式 - 等比缩放居中，完整显示不裁剪
     var scale = Math.min(ww / CW, wh / CH);
@@ -373,6 +372,8 @@ function resizeCanvas(){
     canvas.style.left = cOffsetX + 'px';
     canvas.style.top = cOffsetY + 'px';
     renderScale = scale * dpr;
+    renderScaleX = renderScale;
+    renderScaleY = renderScale;
     ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   }
   
@@ -499,7 +500,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.3.0';
+var IMG_VER = 'v2.4.0';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -3617,6 +3618,7 @@ function render(){
 
   // 物理像素字体大小 = 游戏坐标字体 × renderScale，确保文字1:1物理像素渲染不模糊
   var fontScale = renderScale;
+  var fontScaleX = renderScaleX, fontScaleY = renderScaleY;
 
   // Draw ALL NPCs as clickable hotspots
   for(const npc of sc.npcs){
@@ -3625,8 +3627,8 @@ function render(){
     const drawSize = npc.drawSize || 48;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    var pxX = npc.x * fontScale;
-    var pxY = (npc.y + drawSize/2 + 6) * fontScale;
+    var pxX = npc.x * fontScaleX;
+    var pxY = (npc.y + drawSize/2 + 6) * fontScaleY;
     var pxFont = scaledFont(13, 14);
     ctx.font = 'bold ' + pxFont + 'px sans-serif';
     ctx.textAlign = 'center';
@@ -3652,8 +3654,8 @@ function render(){
         const drawSize = obj.drawSize || 48;
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        var pxX2 = obj.x * fontScale;
-        var pxY2 = (obj.y + drawSize/2 + 6) * fontScale;
+        var pxX2 = obj.x * fontScaleX;
+        var pxY2 = (obj.y + drawSize/2 + 6) * fontScaleY;
         var pxFont2 = scaledFont(13, 14);
         ctx.font = 'bold ' + pxFont2 + 'px sans-serif';
         ctx.textAlign = 'center';
@@ -3682,8 +3684,8 @@ function render(){
       if(obj.label){
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        var lcx = cx * fontScale;
-        var lcy = (cy + 14) * fontScale;
+        var lcx = cx * fontScaleX;
+        var lcy = (cy + 14) * fontScaleY;
         var lpxFont = scaledFont(14, 15);
         ctx.font = 'bold ' + lpxFont + 'px sans-serif';
         ctx.textAlign = 'center';
@@ -3710,8 +3712,8 @@ function render(){
     drawCat(ctx, catX, catY, !G.flags.catTalked);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    var catPxX = catX * fontScale;
-    var catPxY = (catY + 26) * fontScale;
+    var catPxX = catX * fontScaleX;
+    var catPxY = (catY + 26) * fontScaleY;
     var catFont = scaledFont(13, 14);
     ctx.font = 'bold ' + catFont + 'px sans-serif';
     ctx.textAlign = 'center';
@@ -3740,8 +3742,8 @@ function render(){
     const cx = ex.x + ex.w/2, cy = ex.y + ex.h/2;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    var exPxX = cx * fontScale;
-    var exPxY = cy * fontScale;
+    var exPxX = cx * fontScaleX;
+    var exPxY = cy * fontScaleY;
     var exFont = scaledFont(16, 17);
     ctx.font = 'bold ' + exFont + 'px sans-serif';
     ctx.textAlign = 'center';
@@ -3892,8 +3894,8 @@ function drawIronDoor(ctx){
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     var doorFont = scaledFont(14, 15);
-    var doorPxX = 670 * fontScale;
-    var doorPxY = 435 * fontScale;
+    var doorPxX = 670 * fontScaleX;
+    var doorPxY = 435 * fontScaleY;
     ctx.font = 'bold ' + doorFont + 'px sans-serif';
     ctx.textAlign = 'center';
     var doorLabel = '铁门';
