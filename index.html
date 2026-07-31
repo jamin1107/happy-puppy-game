@@ -4,12 +4,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>快乐小狗丢失案</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif;touch-action:none;user-select:none;}
 #gameWrapper{position:fixed;inset:0;background:#0d0d1a;}
-#gameCanvas{display:block;box-shadow:none;border-radius:0;position:fixed;z-index:1;touch-action:none;}
+#gameCanvas{display:block;box-shadow:none;border-radius:0;position:fixed;z-index:1;touch-action:none;image-rendering:auto;}
 #uiLayer{position:fixed;inset:0;pointer-events:none;transform-origin:top left;z-index:5;}
 .touch-btn{pointer-events:auto;}
 /* 弹窗遮罩 - 防止穿透到canvas */
@@ -169,13 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.6.0" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.6.0-HD</div>
   </div>
 </div>
 
@@ -195,6 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.6.0-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -310,6 +315,7 @@ canvas.height = CH;
 // 横屏/宽屏: contain等比缩放，完整显示不裁剪
 // canvas内部分辨率 = CSS尺寸 × DPR = 屏幕物理像素，实现1:1像素级清晰渲染
 var renderScale = 1;
+var renderScaleX = 1, renderScaleY = 1; // 非等比缩放（竖屏填满屏幕用）
 var dpr = window.devicePixelRatio || 1;
 // 辅助函数：确保字体在CSS层面不小于minCssPx，避免手机缩放后字体太小看不清
 function scaledFont(baseGamePx, minCssPx) {
@@ -328,26 +334,32 @@ function resizeCanvas(){
   var isPortrait = wh > ww; // 竖屏
   
   if(isPortrait){
-    // 竖屏: 按宽度缩放填满屏幕宽度，高度居中（上下可能有黑边但不裁剪左右）
-    // 这样canvas宽度=屏幕宽度，最大化像素利用率，画面清晰
-    var scale = ww / CW;
-    var scaledW = CW * scale; // = ww
-    var scaledH = CH * scale; // 600 * (ww/800) < wh，高度不足有黑边
-    var offsetX = 0;
-    var offsetY = (wh - scaledH) / 2;
-    var cw = Math.round(scaledW * dpr);
-    var ch = Math.round(scaledH * dpr);
+    // 竖屏: cover模式 - 等比缩放填满屏幕，裁掉超出部分
+    // 800x600是4:3比例，手机竖屏约9:19.5，按高度缩放填满高度，宽度会超出被裁
+    // 这样画面不变形不模糊，牺牲两侧少量画面
+    var scale = wh / CH;  // 按高度缩放
+    var scaledW = CW * scale;  // 缩放后的宽度，会大于屏幕宽度
+    var scaledH = wh;  // 高度填满
+    var offsetX = (ww - scaledW) / 2;  // 居中，左右裁切
+    var cw = Math.round(ww * dpr);
+    var ch = Math.round(wh * dpr);
     if(canvas.width !== cw || canvas.height !== ch){
       canvas.width = cw;
       canvas.height = ch;
     }
-    canvas.style.width = scaledW + 'px';
-    canvas.style.height = scaledH + 'px';
+    canvas.style.width = ww + 'px';
+    canvas.style.height = wh + 'px';
     canvas.style.position = 'fixed';
-    canvas.style.left = offsetX + 'px';
-    canvas.style.top = offsetY + 'px';
-    renderScale = scale * dpr;
-    ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+    canvas.style.left = '0px';
+    canvas.style.top = '0px';
+    // canvas transform: 先缩放到物理像素，再偏移裁切
+    var physScale = scale * dpr;
+    var physOffsetX = offsetX * dpr;
+    canvasOffsetX = physOffsetX; // 供文字标签使用
+    renderScale = physScale;
+    renderScaleX = physScale;
+    renderScaleY = physScale;
+    ctx.setTransform(physScale, 0, 0, physScale, physOffsetX, 0);
   } else {
     // 横屏: contain模式 - 等比缩放居中，完整显示不裁剪
     var scale = Math.min(ww / CW, wh / CH);
@@ -367,6 +379,8 @@ function resizeCanvas(){
     canvas.style.left = cOffsetX + 'px';
     canvas.style.top = cOffsetY + 'px';
     renderScale = scale * dpr;
+    renderScaleX = renderScale;
+    renderScaleY = renderScale;
     ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   }
   
@@ -393,6 +407,61 @@ resizeCanvas();
 // 延迟再次调用，确保 iOS Safari 完成布局后尺寸正确
 setTimeout(resizeCanvas, 300);
 setTimeout(resizeCanvas, 1000);
+
+// ============================================================
+//  PHYSICAL PIXEL IMAGE DRAWING - 避免双重缩放模糊
+// ============================================================
+// 问题：ctx.drawImage(img, 0, 0, 800, 600) 在带transform的canvas上
+//   会导致 1920x1440 → 800x600(缩小) → 物理像素(放大) 的双重缩放
+// 解决：切换到identity transform，直接按物理像素绘制，浏览器从原图采样
+// ============================================================
+
+// 全屏背景图：游戏坐标(0,0,CW,CH) → 物理像素直绘（含源矩形裁剪优化）
+function drawBgPhys(ctx, img){
+  var t = ctx.getTransform();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  var destX = t.e, destY = t.f;
+  var destW = CW * t.a, destH = CH * t.d;
+  // 计算canvas可见区域与目标矩形的交集
+  var visL = Math.max(0, -destX);
+  var visT = Math.max(0, -destY);
+  var visR = Math.min(destW, canvas.width - destX);
+  var visB = Math.min(destH, canvas.height - destY);
+  if(visR > visL && visB > visT){
+    // 源矩形（原图像素）—只采样可见部分，减少浏览器插值负担
+    var srcX = (visL / destW) * img.width;
+    var srcY = (visT / destH) * img.height;
+    var srcW = ((visR - visL) / destW) * img.width;
+    var srcH = ((visB - visT) / destH) * img.height;
+    ctx.drawImage(img, srcX, srcY, srcW, srcH, destX + visL, destY + visT, visR - visL, visB - visT);
+  }
+  ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
+}
+
+// 圆形头像：游戏坐标圆心(x,y)半径size/2 → 物理像素直绘
+function drawNpcPhys(ctx, img, x, y, size){
+  var t = ctx.getTransform();
+  var pxX = x * t.a + t.e;      // 物理像素圆心X
+  var pxY = y * t.d + t.f;      // 物理像素圆心Y
+  var pxR = (size / 2) * t.a;   // 物理像素半径
+  var pxSize = pxR * 2;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // 阴影
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(pxX, pxY + pxR + 3 * t.a, pxR * 0.9, pxR / 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 圆形裁剪
+  ctx.beginPath();
+  ctx.arc(pxX, pxY, pxR, 0, Math.PI * 2);
+  ctx.clip();
+  // 从原图中心正方形裁剪 → 物理像素圆
+  var s = Math.max(img.width, img.height);
+  var sx = (img.width - s) / 2;
+  var sy = (img.height - s) / 2;
+  ctx.drawImage(img, sx, sy, s, s, pxX - pxR, pxY - pxR, pxSize, pxSize);
+  ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f); // 恢复
+}
 
 // 屏幕坐标转800x600游戏坐标（基于canvas的实际CSS位置）
 function screenToGame(clientX, clientY){
@@ -492,42 +561,46 @@ const G = {
 // ============================================================
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
+// 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
+var IMG_VER = 'v2.6.0';
+function imgSrc(path){ return path + '?v=' + IMG_VER; }
+
 const imgCache = {};
 const imagePaths = {
-  community: 'assets/images/community_bg.webp',
-  teashop: 'assets/images/teashop_bg.webp',
-  delivery: 'assets/images/express_station_bg.webp',
-  kindergarten: 'assets/images/kindergarten_bg.webp',
-  parking_b1: 'assets/images/parking_b1_bg.webp',
-  parking_b2: 'assets/images/parking_b2_bg.webp',
-  sm_mall: 'assets/images/sm_mall_bg.webp',
-  supermarket: 'assets/images/supermarket_bg.webp',
-  beach: 'assets/images/beach_bg.webp',
-  cover: 'assets/images/cover.webp',
-  puppy: 'assets/images/puppy.webp',
-  cat: 'assets/images/cat.webp',
-  old_chen: 'assets/images/old_chen.webp',
-  capybara: 'assets/images/capybara.webp',
-  gatekeeper: 'assets/images/gatekeeper.webp',
-  wang_ayi: 'assets/images/wang_ayi.webp',
-  station_owner: 'assets/images/station_owner.webp',
-  teacher: 'assets/images/teacher.webp',
-  guard: 'assets/images/guard.webp',
-  cashier: 'assets/images/cashier.webp',
+  community: imgSrc('assets/images/community_bg.webp'),
+  teashop: imgSrc('assets/images/teashop_bg.webp'),
+  delivery: imgSrc('assets/images/express_station_bg.webp'),
+  kindergarten: imgSrc('assets/images/kindergarten_bg.webp'),
+  parking_b1: imgSrc('assets/images/parking_b1_bg.webp'),
+  parking_b2: imgSrc('assets/images/parking_b2_bg.webp'),
+  sm_mall: imgSrc('assets/images/sm_mall_bg.webp'),
+  supermarket: imgSrc('assets/images/supermarket_bg.webp'),
+  beach: imgSrc('assets/images/beach_bg.webp'),
+  cover: imgSrc('assets/images/cover.webp'),
+  puppy: imgSrc('assets/images/puppy.webp'),
+  cat: imgSrc('assets/images/cat.webp'),
+  old_chen: imgSrc('assets/images/old_chen.webp'),
+  capybara: imgSrc('assets/images/capybara.webp'),
+  gatekeeper: imgSrc('assets/images/gatekeeper.webp'),
+  wang_ayi: imgSrc('assets/images/wang_ayi.webp'),
+  station_owner: imgSrc('assets/images/station_owner.webp'),
+  teacher: imgSrc('assets/images/teacher.webp'),
+  guard: imgSrc('assets/images/guard.webp'),
+  cashier: imgSrc('assets/images/cashier.webp'),
 };
 // Horror quest images - loaded on demand when horror quest starts
 const horrorImagePaths = {
-  ghost_red_tears: 'assets/images/ghost_red_tears.webp',
-  ghost_scream: 'assets/images/ghost_scream.webp',
-  ghost_reach: 'assets/images/ghost_reach.webp',
-  ghost_mirror: 'assets/images/ghost_mirror.webp',
-  ghost_shadow: 'assets/images/ghost_shadow.webp',
-  ghost_lady: 'assets/images/ghost_lady.webp',
-  stairwell: 'assets/images/stairwell_bg.webp',
-  horror_basement: 'assets/images/basement_bg.webp',
-  corridor: 'assets/images/corridor_bg.webp',
-  mirror_room: 'assets/images/mirror_room_bg.webp',
-  ritual_room: 'assets/images/ritual_room_bg.webp',
+  ghost_red_tears: imgSrc('assets/images/ghost_red_tears.webp'),
+  ghost_scream: imgSrc('assets/images/ghost_scream.webp'),
+  ghost_reach: imgSrc('assets/images/ghost_reach.webp'),
+  ghost_mirror: imgSrc('assets/images/ghost_mirror.webp'),
+  ghost_shadow: imgSrc('assets/images/ghost_shadow.webp'),
+  ghost_lady: imgSrc('assets/images/ghost_lady.webp'),
+  stairwell: imgSrc('assets/images/stairwell_bg.webp'),
+  horror_basement: imgSrc('assets/images/basement_bg.webp'),
+  corridor: imgSrc('assets/images/corridor_bg.webp'),
+  mirror_room: imgSrc('assets/images/mirror_room_bg.webp'),
+  ritual_room: imgSrc('assets/images/ritual_room_bg.webp'),
 };
 var horrorImagesLoaded = false;
 function loadHorrorImages(){
@@ -598,18 +671,11 @@ function drawNpcBillboard(ctx, imgKey, x, y, size){
     ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.fill();
     return;
   }
+  // 物理像素直绘头像（避免双重缩放模糊）
   ctx.save();
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath(); ctx.ellipse(x, y+size/2+3, size/2*0.9, size/7, 0, 0, Math.PI*2); ctx.fill();
-  // Circular portrait
-  ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.clip();
-  const s = Math.max(img.width, img.height);
-  const sx = (img.width - s) / 2;
-  const sy = (img.height - s) / 2;
-  ctx.drawImage(img, sx, sy, s, s, x-size/2, y-size/2, size, size);
+  drawNpcPhys(ctx, img, x, y, size);
   ctx.restore();
-  // Glowing border ring
+  // 发光边框环（游戏坐标系绘制，矢量图形缩放无模糊）
   ctx.strokeStyle = 'rgba(255,255,255,0.7)';
   ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.stroke();
@@ -823,7 +889,7 @@ const scenes = {
       {x:300,y:80,w:200,h:50, type:'fountain'},
     ],
     npcs: [
-      {id:'wang', x:130, y:480, w:32, h:40, name:'王阿姨', draw:drawWangAyi, interact: interactWang},
+      {id:'wang', x:280, y:480, w:32, h:40, name:'王阿姨', draw:drawWangAyi, interact: interactWang},
     ],
     objects: [
       {id:'pawprints', x:480, y:350, w:50, h:50, interact: interactPawprints},
@@ -849,7 +915,7 @@ const scenes = {
       {x:500,y:50,w:200,h:70, type:'counter'},
     ],
     npcs: [
-      {id:'chen', x:600, y:200, w:32, h:44, name:'老陈', draw:drawOldChen, interact: interactChen},
+      {id:'chen', x:550, y:180, w:32, h:44, name:'老陈', draw:drawOldChen, interact: interactChen},
     ],
     objects: [
       {id:'dogbed', x:350, y:180, w:50, h:40, interact: interactDogbed},
@@ -878,7 +944,7 @@ const scenes = {
     npcs: [],
     objects: [
       {id:'cat_spot', x:600, y:120, w:50, h:50, interact: interactCatSpot},
-      {id:'station_owner', x:200, y:300, w:32, h:40, name:'驿站老板', draw:drawStationOwner, interact: interactStationOwner, isNpcLike:true},
+      {id:'station_owner', x:300, y:350, w:32, h:40, name:'驿站老板', draw:drawStationOwner, interact: interactStationOwner, isNpcLike:true},
     ],
     exits: [
       {x:0,y:280,w:50,h:60,to:'community',label:'← 回小区'},
@@ -899,7 +965,7 @@ const scenes = {
     ],
     npcs: [
       {id:'teacher', x:400, y:250, w:32, h:40, name:'幼儿园老师', draw:drawTeacher, interact: interactTeacher},
-      {id:'gatekeeper', x:620, y:300, w:32, h:40, name:'门卫大爷', draw:drawGatekeeper, interact: interactGatekeeper},
+      {id:'gatekeeper', x:560, y:350, w:32, h:40, name:'门卫大爷', draw:drawGatekeeper, interact: interactGatekeeper},
     ],
     objects: [
       {id:'kg_clue', x:500, y:400, w:50, h:50, interact: interactKgClue},
@@ -980,7 +1046,7 @@ const scenes = {
       {x:640,y:460,w:100,h:60, type:'shop'},
     ],
     npcs: [
-      {id:'guard', x:200, y:300, w:32, h:40, name:'商场保安', draw:drawGuard, interact: interactGuard},
+      {id:'guard', x:380, y:250, w:32, h:40, name:'商场保安', draw:drawGuard, interact: interactGuard},
     ],
     objects: [
       {id:'puppy_spot', x:560, y:300, w:60, h:60, interact: interactPuppySpot},
@@ -1007,7 +1073,7 @@ const scenes = {
       {x:460,y:440,w:120,h:60, type:'shelf'},
     ],
     npcs: [
-      {id:'cashier', x:650, y:300, w:32, h:40, name:'收银员', draw:drawCashier, interact: interactCashier},
+      {id:'cashier', x:450, y:350, w:32, h:40, name:'收银员', draw:drawCashier, interact: interactCashier},
     ],
     objects: [
       {id:'smoke_shelf', x:100, y:440, w:60, h:40, interact: interactSmokeShelf},
@@ -1422,12 +1488,9 @@ function drawSceneBg(ctx, sceneName){
   // Draw AI-generated background image
   const img = imgCache[sceneName];
   if(img && img.complete){
-    // 直接按canvas物理像素绘制，绕过transform的二次缩放，避免模糊
-    // 保存当前transform，重置为identity，按物理像素绘制背景，再恢复
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    // 物理像素直绘：绕过800x600中间坐标系，浏览器从1920x1440原图直接采样到物理像素
+    // 消除"原图→800x600(缩小)→物理像素(放大)"的双重缩放模糊
+    drawBgPhys(ctx, img);
   } else {
     // Fallback gradient while loading
     const fallbackColors = {
@@ -3607,6 +3670,7 @@ function render(){
 
   // 物理像素字体大小 = 游戏坐标字体 × renderScale，确保文字1:1物理像素渲染不模糊
   var fontScale = renderScale;
+  var fontScaleX = renderScaleX, fontScaleY = renderScaleY;
 
   // Draw ALL NPCs as clickable hotspots
   for(const npc of sc.npcs){
@@ -3614,14 +3678,18 @@ function render(){
     // Name tag below NPC - drawn at physical pixel resolution for crispness
     const drawSize = npc.drawSize || 48;
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    var pxX = npc.x * fontScale;
-    var pxY = (npc.y + drawSize/2 + 6) * fontScale;
+    ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
+    var pxX = npc.x * fontScaleX;
+    var pxY = (npc.y + drawSize/2 + 6) * fontScaleY;
     var pxFont = scaledFont(13, 14);
     ctx.font = 'bold ' + pxFont + 'px sans-serif';
     ctx.textAlign = 'center';
     var tw = (ctx.measureText(npc.name).width + 16 * dpr);
     var th = pxFont + 10 * dpr;
+    // 边界检测：确保标签不超出canvas范围
+    if(pxX - tw/2 < 2 * dpr) pxX = tw/2 + 2 * dpr;
+    if(pxX + tw/2 > canvas.width - 2 * dpr) pxX = canvas.width - tw/2 - 2 * dpr;
+    if(pxY + th > canvas.height - 2 * dpr) pxY = canvas.height - th - 2 * dpr;
     ctx.fillStyle = 'rgba(30,25,20,0.78)';
     ctx.beginPath(); ctx.roundRect(pxX - tw/2, pxY, tw, th, 5 * dpr); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.96)';
@@ -3637,14 +3705,18 @@ function render(){
       if(obj.name){
         const drawSize = obj.drawSize || 48;
         ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        var pxX2 = obj.x * fontScale;
-        var pxY2 = (obj.y + drawSize/2 + 6) * fontScale;
+        ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
+        var pxX2 = obj.x * fontScaleX;
+        var pxY2 = (obj.y + drawSize/2 + 6) * fontScaleY;
         var pxFont2 = scaledFont(13, 14);
         ctx.font = 'bold ' + pxFont2 + 'px sans-serif';
         ctx.textAlign = 'center';
         var tw2 = (ctx.measureText(obj.name).width + 16 * dpr);
         var th2 = pxFont2 + 10 * dpr;
+        // 边界检测
+        if(pxX2 - tw2/2 < 2 * dpr) pxX2 = tw2/2 + 2 * dpr;
+        if(pxX2 + tw2/2 > canvas.width - 2 * dpr) pxX2 = canvas.width - tw2/2 - 2 * dpr;
+        if(pxY2 + th2 > canvas.height - 2 * dpr) pxY2 = canvas.height - th2 - 2 * dpr;
         ctx.fillStyle = 'rgba(30,25,20,0.78)';
         ctx.beginPath(); ctx.roundRect(pxX2 - tw2/2, pxY2, tw2, th2, 5 * dpr); ctx.fill();
         ctx.fillStyle = 'rgba(255,255,255,0.96)';
@@ -3663,15 +3735,19 @@ function render(){
       // Show label for important objects - drawn at physical pixel resolution
       if(obj.label){
         ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        var lcx = cx * fontScale;
-        var lcy = (cy + 14) * fontScale;
+        ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
+        var lcx = cx * fontScaleX;
+        var lcy = (cy + 14) * fontScaleY;
         var lpxFont = scaledFont(14, 15);
         ctx.font = 'bold ' + lpxFont + 'px sans-serif';
         ctx.textAlign = 'center';
         var lt = obj.label;
         var ltw = ctx.measureText(lt).width + 20 * dpr;
         var lth = lpxFont + 12 * dpr;
+        // 边界检测
+        if(lcx - ltw/2 < 2 * dpr) lcx = ltw/2 + 2 * dpr;
+        if(lcx + ltw/2 > canvas.width - 2 * dpr) lcx = canvas.width - ltw/2 - 2 * dpr;
+        if(lcy + lth > canvas.height - 2 * dpr) lcy = canvas.height - lth - 2 * dpr;
         ctx.fillStyle = 'rgba(217,119,87,0.92)';
         ctx.beginPath(); ctx.roundRect(lcx - ltw/2, lcy, ltw, lth, 6 * dpr); ctx.fill();
         ctx.fillStyle = '#fff';
@@ -3687,14 +3763,18 @@ function render(){
     const catX = 600, catY = 130;
     drawCat(ctx, catX, catY, !G.flags.catTalked);
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    var catPxX = catX * fontScale;
-    var catPxY = (catY + 26) * fontScale;
+    ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
+    var catPxX = catX * fontScaleX;
+    var catPxY = (catY + 26) * fontScaleY;
     var catFont = scaledFont(13, 14);
     ctx.font = 'bold ' + catFont + 'px sans-serif';
     ctx.textAlign = 'center';
     var catTw = ctx.measureText('犹豫小猫').width + 16 * dpr;
     var catTh = catFont + 10 * dpr;
+    // 边界检测
+    if(catPxX - catTw/2 < 2 * dpr) catPxX = catTw/2 + 2 * dpr;
+    if(catPxX + catTw/2 > canvas.width - 2 * dpr) catPxX = canvas.width - catTw/2 - 2 * dpr;
+    if(catPxY + catTh > canvas.height - 2 * dpr) catPxY = canvas.height - catTh - 2 * dpr;
     ctx.fillStyle = 'rgba(30,25,20,0.78)';
     ctx.beginPath(); ctx.roundRect(catPxX - catTw/2, catPxY, catTw, catTh, 5 * dpr); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.96)';
@@ -3713,15 +3793,21 @@ function render(){
     const locked = ex.locked && !isExitUnlocked(ex);
     const cx = ex.x + ex.w/2, cy = ex.y + ex.h/2;
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    var exPxX = cx * fontScale;
-    var exPxY = cy * fontScale;
+    ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
+    var exPxX = cx * fontScaleX;
+    var exPxY = cy * fontScaleY;
     var exFont = scaledFont(16, 17);
     ctx.font = 'bold ' + exFont + 'px sans-serif';
     ctx.textAlign = 'center';
     var exLabel = ex.label + (locked ? ' 🔒' : '');
     var exTw = ctx.measureText(exLabel).width + 28 * dpr;
     var exTh = exFont + 18 * dpr;
+    // 边界检测：确保标签完整显示在canvas范围内
+    var halfExW = exTw / 2, halfExH = exTh / 2;
+    if(exPxX - halfExW < 2 * dpr) exPxX = halfExW + 2 * dpr;
+    if(exPxX + halfExW > canvas.width - 2 * dpr) exPxX = canvas.width - halfExW - 2 * dpr;
+    if(exPxY - halfExH < 2 * dpr) exPxY = halfExH + 2 * dpr;
+    if(exPxY + halfExH > canvas.height - 2 * dpr) exPxY = canvas.height - halfExH - 2 * dpr;
     // Shadow
     ctx.shadowColor = 'rgba(0,0,0,0.45)';
     ctx.shadowBlur = 8 * dpr;
@@ -3794,9 +3880,7 @@ function drawHorrorFlash(ctx){
     if(img && img.complete){
       ctx.save();
       ctx.globalAlpha = Math.min(1, horrorFlashTimer / 200);
-      // 直接按canvas物理像素绘制，避免transform二次缩放模糊
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      drawBgPhys(ctx, img);
       ctx.restore();
     } else {
       // Fallback white flash
@@ -3858,10 +3942,10 @@ function drawIronDoor(ctx){
     ctx.beginPath(); ctx.arc(670, 385, pulse, 0, Math.PI*2); ctx.fill();
     // Label - drawn at physical pixel resolution for crispness
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
     var doorFont = scaledFont(14, 15);
-    var doorPxX = 670 * fontScale;
-    var doorPxY = 435 * fontScale;
+    var doorPxX = 670 * fontScaleX;
+    var doorPxY = 435 * fontScaleY;
     ctx.font = 'bold ' + doorFont + 'px sans-serif';
     ctx.textAlign = 'center';
     var doorLabel = '铁门';
