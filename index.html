@@ -333,6 +333,67 @@ const G = {
 };
 
 // ============================================================
+//  IMAGE CACHE - AI Generated Art
+// ============================================================
+const imgCache = {};
+const imagePaths = {
+  community: 'assets/images/community_bg.jpg',
+  teashop: 'assets/images/teashop_bg.jpg',
+  delivery: 'assets/images/express_station_bg.jpg',
+  kindergarten: 'assets/images/kindergarten_bg.jpg',
+  parking_b1: 'assets/images/parking_b1_bg.jpg',
+  parking_b2: 'assets/images/parking_b2_bg.jpg',
+  sm_mall: 'assets/images/sm_mall_bg.jpg',
+  supermarket: 'assets/images/supermarket_bg.jpg',
+  beach: 'assets/images/beach_bg.jpg',
+  cover: 'assets/images/cover.jpg',
+  puppy: 'assets/images/puppy.jpg',
+  cat: 'assets/images/cat.jpg',
+  old_chen: 'assets/images/old_chen.jpg',
+  capybara: 'assets/images/capybara.jpg',
+  gatekeeper: 'assets/images/gatekeeper.jpg',
+};
+function loadImages(){
+  for(const [key, path] of Object.entries(imagePaths)){
+    const img = new Image();
+    img.onload = () => { imgCache[key] = img; };
+    img.onerror = () => { console.warn('Failed to load: ' + path); };
+    img.src = path;
+  }
+}
+loadImages();
+
+// Draw NPC as a circular billboard portrait from AI image
+function drawNpcBillboard(ctx, imgKey, x, y, size){
+  size = size || 44;
+  const img = imgCache[imgKey];
+  if(!img || !img.complete){
+    // Fallback: pulsing circle while loading
+    ctx.fillStyle = 'rgba(217,119,87,0.3)';
+    ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.fill();
+    return;
+  }
+  ctx.save();
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(x, y+size/2+3, size/2*0.9, size/7, 0, 0, Math.PI*2); ctx.fill();
+  // Circular portrait
+  ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.clip();
+  const s = Math.max(img.width, img.height);
+  const sx = (img.width - s) / 2;
+  const sy = (img.height - s) / 2;
+  ctx.drawImage(img, sx, sy, s, s, x-size/2, y-size/2, size, size);
+  ctx.restore();
+  // Glowing border ring
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(217,119,87,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(x, y, size/2+2, 0, Math.PI*2); ctx.stroke();
+}
+
+// ============================================================
 //  INPUT
 // ============================================================
 const keys = {};
@@ -731,266 +792,18 @@ function drawPlayer(ctx, x, y, dir, frame){
 }
 
 // --- Happy Puppy - matching photo: cream/white body, golden ears, black nose ---
-function drawPuppy(ctx, x, y, happy=true){
-  ctx.save();
-  ctx.translate(x, y);
-  // shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath();
-  ctx.ellipse(0, 20, 18, 6, 0, 0, Math.PI*2);
-  ctx.fill();
-  // body - cream/white
-  ctx.fillStyle = '#f5ecd9';
-  ctx.beginPath();
-  ctx.ellipse(0, 5, 16, 12, 0, 0, Math.PI*2);
-  ctx.fill();
-  // back shading - slightly beige
-  ctx.fillStyle = '#e8dcc4';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 14, 8, 0, Math.PI, 0);
-  ctx.fill();
-  // legs
-  ctx.fillStyle = '#f5ecd9';
-  ctx.beginPath(); ctx.roundRect(-12, 10, 6, 10, 3); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(6, 10, 6, 10, 3); ctx.fill();
-  // tail - wagging
-  ctx.fillStyle = '#f5ecd9';
-  const tailWag = happy ? Math.sin(Date.now()/200)*0.3 : 0;
-  ctx.save();
-  ctx.translate(14, 0);
-  ctx.rotate(-0.5 + tailWag);
-  ctx.beginPath();
-  ctx.ellipse(0, -5, 4, 8, 0, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-  // head
-  ctx.fillStyle = '#f5ecd9';
-  ctx.beginPath();
-  ctx.arc(0, -10, 12, 0, Math.PI*2);
-  ctx.fill();
-  // ears - golden/tan
-  ctx.fillStyle = '#d4a04c';
-  ctx.beginPath();
-  ctx.ellipse(-10, -12, 5, 9, -0.3, 0, Math.PI*2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(10, -12, 5, 9, 0.3, 0, Math.PI*2);
-  ctx.fill();
-  // ear inner
-  ctx.fillStyle = '#c08838';
-  ctx.beginPath();
-  ctx.ellipse(-10, -10, 3, 6, -0.3, 0, Math.PI*2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(10, -10, 3, 6, 0.3, 0, Math.PI*2);
-  ctx.fill();
-  // muzzle area - lighter
-  ctx.fillStyle = '#faf5e8';
-  ctx.beginPath();
-  ctx.ellipse(0, -7, 7, 6, 0, 0, Math.PI*2);
-  ctx.fill();
-  // nose - black
-  ctx.fillStyle = '#2a2018';
-  ctx.beginPath();
-  ctx.ellipse(0, -10, 3, 2.5, 0, 0, Math.PI*2);
-  ctx.fill();
-  if(happy){
-    // smiling mouth
-    ctx.strokeStyle = '#2a2018';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, -8);
-    ctx.lineTo(0, -5);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(-3, -5, 3, 0, Math.PI*0.5);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(3, -5, 3, Math.PI*0.5, Math.PI);
-    ctx.stroke();
-    // tongue
-    ctx.fillStyle = '#e8838a';
-    ctx.beginPath();
-    ctx.ellipse(0, -3, 2.5, 3, 0, 0, Math.PI*2);
-    ctx.fill();
-  }
-  // eyes
-  ctx.fillStyle = '#2a2018';
-  ctx.beginPath(); ctx.arc(-5, -14, 2, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(5, -14, 2, 0, Math.PI*2); ctx.fill();
-  // eye shine
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(-4.5, -14.5, 0.8, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(5.5, -14.5, 0.8, 0, Math.PI*2); ctx.fill();
-  // collar
-  ctx.strokeStyle = '#d97757';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(0, -3, 10, Math.PI*0.2, Math.PI*0.8);
-  ctx.stroke();
-  // bell
-  ctx.fillStyle = '#ffd966';
-  ctx.beginPath();
-  ctx.arc(0, 0, 2.5, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
+function drawPuppy(ctx, x, y, happy){
+  drawNpcBillboard(ctx, 'puppy', x, y, 40);
 }
 
 // --- Black & White Cat - tuxedo cat ---
-function drawCat(ctx, x, y, sad=true){
-  ctx.save();
-  ctx.translate(x, y);
-  // shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath();
-  ctx.ellipse(0, 18, 14, 5, 0, 0, Math.PI*2);
-  ctx.fill();
-  // body - black
-  ctx.fillStyle = '#2a2a2a';
-  ctx.beginPath();
-  ctx.ellipse(0, 5, 13, 10, 0, 0, Math.PI*2);
-  ctx.fill();
-  // white chest patch
-  ctx.fillStyle = '#f5f5f5';
-  ctx.beginPath();
-  ctx.ellipse(0, 8, 6, 7, 0, 0, Math.PI*2);
-  ctx.fill();
-  // legs
-  ctx.fillStyle = '#2a2a2a';
-  ctx.beginPath(); ctx.roundRect(-10, 10, 5, 8, 2); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(5, 10, 5, 8, 2); ctx.fill();
-  // white paws
-  ctx.fillStyle = '#f5f5f5';
-  ctx.beginPath(); ctx.ellipse(-7, 18, 3.5, 2, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(7, 18, 3.5, 2, 0, 0, Math.PI*2); ctx.fill();
-  // tail
-  ctx.fillStyle = '#2a2a2a';
-  ctx.save();
-  ctx.translate(12, 2);
-  ctx.rotate(sad ? 0.3 : -0.3);
-  ctx.beginPath();
-  ctx.ellipse(0, -4, 3, 10, 0, 0, Math.PI*2);
-  ctx.fill();
-  // white tail tip
-  ctx.fillStyle = '#f5f5f5';
-  ctx.beginPath();
-  ctx.ellipse(0, -10, 3, 3, 0, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-  // head - black
-  ctx.fillStyle = '#2a2a2a';
-  ctx.beginPath();
-  ctx.arc(0, -8, 10, 0, Math.PI*2);
-  ctx.fill();
-  // white face patch (muzzle area)
-  ctx.fillStyle = '#f5f5f5';
-  ctx.beginPath();
-  ctx.ellipse(0, -5, 6, 5, 0, 0, Math.PI*2);
-  ctx.fill();
-  // ears
-  ctx.fillStyle = '#2a2a2a';
-  ctx.beginPath();
-  ctx.moveTo(-9, -14); ctx.lineTo(-5, -20); ctx.lineTo(-3, -14); ctx.closePath(); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(9, -14); ctx.lineTo(5, -20); ctx.lineTo(3, -14); ctx.closePath(); ctx.fill();
-  // inner ears
-  ctx.fillStyle = '#d97757';
-  ctx.beginPath();
-  ctx.moveTo(-7, -15); ctx.lineTo(-5, -18); ctx.lineTo(-4, -15); ctx.closePath(); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(7, -15); ctx.lineTo(5, -18); ctx.lineTo(4, -15); ctx.closePath(); ctx.fill();
-  // eyes - green, droopy if sad
-  ctx.fillStyle = '#5a9a5a';
-  if(sad){
-    // droopy/sad eyes
-    ctx.beginPath(); ctx.ellipse(-4, -10, 2, 1.5, -0.3, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(4, -10, 2, 1.5, 0.3, 0, Math.PI*2); ctx.fill();
-    // sad eyebrows
-    ctx.strokeStyle = '#2a2a2a';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(-6, -13); ctx.lineTo(-2, -12); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(6, -13); ctx.lineTo(2, -12); ctx.stroke();
-  } else {
-    ctx.beginPath(); ctx.arc(-4, -10, 2, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(4, -10, 2, 0, Math.PI*2); ctx.fill();
-  }
-  // eye shine
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(-3.5, -10.5, 0.7, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(4.5, -10.5, 0.7, 0, Math.PI*2); ctx.fill();
-  // nose - pink
-  ctx.fillStyle = '#d97757';
-  ctx.beginPath();
-  ctx.ellipse(0, -6, 1.5, 1, 0, 0, Math.PI*2);
-  ctx.fill();
-  // mouth - small
-  ctx.strokeStyle = '#2a2a2a';
-  ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.moveTo(0, -5); ctx.lineTo(0, -3);
-  ctx.stroke();
-  if(sad){
-    ctx.beginPath();
-    ctx.arc(-2, -3, 2, 0, Math.PI);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(2, -3, 2, 0, Math.PI);
-    ctx.stroke();
-  } else {
-    ctx.beginPath();
-    ctx.arc(-2, -3, 2, Math.PI, Math.PI*2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(2, -3, 2, Math.PI, Math.PI*2);
-    ctx.stroke();
-  }
-  // whiskers
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 0.5;
-  ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-12, -7); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-6, -5); ctx.lineTo(-12, -4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(12, -7); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(6, -5); ctx.lineTo(12, -4); ctx.stroke();
-  ctx.restore();
+function drawCat(ctx, x, y, sad){
+  drawNpcBillboard(ctx, 'cat', x, y, 36);
 }
 
 // --- Old Chen (tea shop owner) ---
 function drawOldChen(ctx, x, y){
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI*2); ctx.fill();
-  // body - green shirt
-  ctx.fillStyle = '#6b8e6b';
-  ctx.beginPath(); ctx.roundRect(-11, -3, 22, 24, 4); ctx.fill();
-  // apron
-  ctx.fillStyle = '#8b7355';
-  ctx.beginPath(); ctx.roundRect(-8, 0, 16, 18, 2); ctx.fill();
-  // head
-  ctx.fillStyle = '#f4d4b0';
-  ctx.beginPath(); ctx.arc(0, -14, 10, 0, Math.PI*2); ctx.fill();
-  // hair - thin
-  ctx.fillStyle = '#3a3028';
-  ctx.beginPath(); ctx.arc(0, -18, 9, Math.PI, 0); ctx.fill();
-  // glasses
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.arc(-4, -13, 3.5, 0, Math.PI*2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(4, -13, 3.5, 0, Math.PI*2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-0.5, -13); ctx.lineTo(0.5, -13); ctx.stroke();
-  // eyes behind glasses
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(-4, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(4, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  // mouth - worried
-  ctx.strokeStyle = '#8b6b4b';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(0, -8, 3, Math.PI*0.2, Math.PI*0.8); ctx.stroke();
-  // legs
-  ctx.fillStyle = '#4a4a4a';
-  ctx.beginPath(); ctx.roundRect(-8, 19, 6, 6, 2); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(2, 19, 6, 6, 2); ctx.fill();
-  ctx.restore();
+  drawNpcBillboard(ctx, 'old_chen', x, y, 48);
 }
 
 // --- 王阿姨 ---
@@ -1090,36 +903,7 @@ function drawGuard(ctx, x, y){
 
 // --- 门卫大爷 ---
 function drawGatekeeper(ctx, x, y){
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(0, 22, 14, 5, 0, 0, Math.PI*2); ctx.fill();
-  // body - dark blue uniform
-  ctx.fillStyle = '#3a4a6a';
-  ctx.beginPath(); ctx.roundRect(-11, -3, 22, 24, 4); ctx.fill();
-  // head
-  ctx.fillStyle = '#e8c8a0';
-  ctx.beginPath(); ctx.arc(0, -14, 10, 0, Math.PI*2); ctx.fill();
-  // bald head
-  ctx.fillStyle = '#d4b890';
-  ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI*0.8, Math.PI*2.2); ctx.fill();
-  // hat
-  ctx.fillStyle = '#2a3a5a';
-  ctx.beginPath(); ctx.ellipse(0, -19, 12, 4, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(-10, -23, 20, 6, 2); ctx.fill();
-  // eyes
-  ctx.fillStyle = '#333';
-  ctx.beginPath(); ctx.arc(-4, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(4, -13, 1.5, 0, Math.PI*2); ctx.fill();
-  // mustache
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(-5, -9); ctx.lineTo(-2, -8); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(5, -9); ctx.lineTo(2, -8); ctx.stroke();
-  // arms crossed
-  ctx.fillStyle = '#3a4a6a';
-  ctx.beginPath(); ctx.roundRect(-14, 2, 10, 6, 3); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(4, 2, 10, 6, 3); ctx.fill();
-  ctx.restore();
+  drawNpcBillboard(ctx, 'gatekeeper', x, y, 48);
 }
 
 // --- 超市收银员 ---
@@ -1224,6 +1008,8 @@ function drawCapybara(ctx, x, y, awake){
 // ============================================================
 
 function drawObstacle(ctx, obs){
+  ctx.save();
+  ctx.globalAlpha = 0.6; // Semi-transparent so AI background shows through
   const t = obs.type || 'wall';
   switch(t){
     case 'building1':
@@ -1336,114 +1122,32 @@ function drawObstacle(ctx, obs){
       ctx.fillStyle = '#666';
       ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
   }
+  ctx.restore();
 }
 
 function drawSceneBg(ctx, sceneName){
   const sc = scenes[sceneName];
-  // Base ground
-  const groundColors = {
-    community: '#a8c878',
-    teashop: '#d4b896',
-    delivery: '#c4c4c4',
-    kindergarten: '#b8d8a0',
-    parking_b1: '#555560',
-    parking_b2: '#444450',
-    sm_mall: '#d4c4b4',
-    supermarket: '#e8e0d4',
-    beach: '#f0dca0',
-  };
-  ctx.fillStyle = groundColors[sceneName] || '#999';
-  ctx.fillRect(0, 0, CW, CH);
-
-  // Scene-specific ground details
-  if(sceneName === 'community'){
-    // path
-    ctx.fillStyle = '#c4b896';
-    ctx.fillRect(350, 0, 100, CH);
-    ctx.fillRect(0, 340, CW, 60);
-    // grass texture dots
-    ctx.fillStyle = 'rgba(90,138,74,0.3)';
-    for(let i=0;i<30;i++){
-      ctx.beginPath(); ctx.arc(Math.random()*CW, Math.random()*CH, 3, 0, Math.PI*2); ctx.fill();
-    }
-  } else if(sceneName === 'teashop'){
-    ctx.fillStyle = '#c4a878';
+  // Draw AI-generated background image
+  const img = imgCache[sceneName];
+  if(img && img.complete){
+    ctx.drawImage(img, 0, 0, CW, CH);
+  } else {
+    // Fallback gradient while loading
+    const fallbackColors = {
+      community: ['#a8c878','#8ab868'], teashop: ['#d4b896','#c4a878'],
+      delivery: ['#c4c4c4','#b4b4b4'], kindergarten: ['#b8d8a0','#a8c890'],
+      parking_b1: ['#555560','#444450'], parking_b2: ['#444450','#333340'],
+      sm_mall: ['#d4c4b4','#c4b4a4'], supermarket: ['#e8e0d4','#d8d0c4'],
+      beach: ['#f0dca0','#e0ca90'],
+    };
+    const fc = fallbackColors[sceneName] || ['#999','#888'];
+    const grad = ctx.createLinearGradient(0, 0, 0, CH);
+    grad.addColorStop(0, fc[0]); grad.addColorStop(1, fc[1]);
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, CW, CH);
-    // tea decorations on wall
-  } else if(sceneName === 'delivery'){
-    // floor lines
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
-    for(let i=0;i<CW;i+=60){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,CH); ctx.stroke(); }
-    for(let i=0;i<CH;i+=60){ ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(CW,i); ctx.stroke(); }
-  } else if(sceneName === 'kindergarten'){
-    // colorful ground
-    ctx.fillStyle = 'rgba(232,122,90,0.1)';
-    ctx.fillRect(300, 300, 200, 100);
-    // rainbow path
-    const colors = ['#e87a5a','#e8b85a','#7aba5a','#5a9ac4','#9a7aba'];
-    for(let i=0;i<5;i++){
-      ctx.fillStyle = colors[i];
-      ctx.fillRect(360+i*8, 0, 8, 30);
-    }
-  } else if(sceneName === 'parking_b1' || sceneName === 'parking_b2'){
-    // parking lines
-    ctx.strokeStyle = '#ffd966'; ctx.lineWidth = 2;
-    for(let i=60;i<CW;i+=100){
-      ctx.beginPath(); ctx.moveTo(i, 40); ctx.lineTo(i, 160); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(i, 420); ctx.lineTo(i, 540); ctx.stroke();
-    }
-    // B2 label
-    if(sceneName === 'parking_b2'){
-      ctx.fillStyle = 'rgba(255,217,102,0.3)';
-      ctx.font = 'bold 48px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('B2', CW/2, CH/2);
-      ctx.textAlign = 'left';
-    }
-  } else if(sceneName === 'sm_mall'){
-    // shiny floor
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    for(let i=0;i<5;i++){
-      ctx.fillRect(0, 100+i*90, CW, 2);
-    }
-  } else if(sceneName === 'supermarket'){
-    // floor tiles
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 1;
-    for(let i=0;i<CW;i+=50){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,CH); ctx.stroke(); }
-    for(let i=0;i<CH;i+=50){ ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(CW,i); ctx.stroke(); }
-  } else if(sceneName === 'beach'){
-    // sand texture
-    ctx.fillStyle = 'rgba(200,170,100,0.3)';
-    for(let i=0;i<40;i++){
-      ctx.beginPath(); ctx.arc(Math.random()*CW, 150+Math.random()*(CH-180), 2+Math.random()*3, 0, Math.PI*2); ctx.fill();
-    }
-    // ocean at top
-    const oceanGrad = ctx.createLinearGradient(0, 30, 0, 150);
-    oceanGrad.addColorStop(0, '#4a9aca');
-    oceanGrad.addColorStop(1, '#7ab8d4');
-    ctx.fillStyle = oceanGrad;
-    ctx.fillRect(0, 30, CW, 120);
-    // waves
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
-    for(let i=0;i<3;i++){
-      ctx.beginPath();
-      const wy = 60+i*25;
-      for(let x=0;x<CW;x+=20){
-        ctx.quadraticCurveTo(x+10, wy-5, x+20, wy);
-      }
-      ctx.stroke();
-    }
-    // 荻花 (reed grass) decoration
-    ctx.strokeStyle = '#c4a44a'; ctx.lineWidth = 2;
-    for(let i=0;i<15;i++){
-      const gx = 50+i*50, gy = 150+Math.random()*30;
-      ctx.beginPath(); ctx.moveTo(gx, gy+20); ctx.lineTo(gx-3, gy); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(gx, gy+20); ctx.lineTo(gx+3, gy-5); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(gx, gy+20); ctx.lineTo(gx, gy-8); ctx.stroke();
-    }
   }
 
-  // Draw obstacles
+  // Draw obstacles (semi-transparent overlays on top of AI background)
   sc.obstacles.forEach(obs => drawObstacle(ctx, obs));
 
   // Draw exits
@@ -1532,7 +1236,15 @@ function startDialogue(name, avatar, lines, choices, callback){
   G.dlgChoices = choices;
   G.dlgCallback = callback;
   document.getElementById('dlgName').textContent = name;
-  document.getElementById('dlgAvatar').textContent = avatar;
+  // AI portrait in dialogue
+  var portraitMap = {'老陈':'old_chen','门卫大爷':'gatekeeper','卡皮巴拉':'capybara'};
+  var portraitKey = portraitMap[name];
+  var dlgAvatarEl = document.getElementById('dlgAvatar');
+  if(portraitKey && imgCache[portraitKey]){
+    dlgAvatarEl.innerHTML = '<img src="'+imagePaths[portraitKey]+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">';
+  } else {
+    dlgAvatarEl.textContent = avatar;
+  }
   document.getElementById('dialogueBox').classList.add('show');
   document.getElementById('dlgNext').style.display = choices ? 'none' : 'block';
   renderDialogue();
@@ -1609,7 +1321,7 @@ function interactChen(){
     if(G.flags.hiddenEnding){
       startDialogue('老陈', '🍵', [
         '快乐小狗！回来了！太好了！',
-        '等等……那只黑白小猫怎么也跟着来了？',
+        '等等……那只犹豫小猫怎么也跟着来了？',
         '它平时见了人就跑的，怎么今天……',
       ], [
         {text: '它们是家人，被同一个主人遗弃的', callback: () => {
@@ -1617,11 +1329,11 @@ function interactChen(){
             '……什么？同一个主人？',
             '难怪……难怪快乐小狗每天偷偷叼饼干出去，原来是给它留的。',
             '我这老糊涂，一直没发现。',
-            '（老陈蹲下身，黑白小猫犹豫了一下，慢慢靠近了他。）',
+            '（老陈蹲下身，犹豫小猫犹豫了一下，慢慢靠近了他。）',
             '行了行了，以后你也不用在外面流浪了。',
             '快乐小狗有伴了，我这茶叶店也热闹了。',
             '都留下吧，都是家人。',
-            '【老陈收养了黑白小猫，快乐小狗和它再也不用分开了】',
+            '【老陈收养了犹豫小猫，快乐小狗和它再也不用分开了】',
           ], null, () => {
             G.questStage = 10;
             showEnding(true);
@@ -1633,9 +1345,9 @@ function interactChen(){
         '快乐小狗！我的快乐小狗回来了！太谢谢你了！',
         '你是怎么找到它的？',
       ], [
-        {text: '是小区里一只黑白小猫告诉我的', callback: () => {
+        {text: '是小区里一只犹豫小猫告诉我的', callback: () => {
           startDialogue('老陈', '🍵', [
-            '黑白小猫？……唉，是我疏忽了，光顾着快乐小狗，没留意还有只小可怜。',
+            '犹豫小猫？……唉，是我疏忽了，光顾着快乐小狗，没留意还有只小可怜。',
             '以后我每天都给它留饼干，你就放心吧。',
             '这茶叶你拿着，还有快乐小狗的谢礼。以后常来喝茶啊！',
           ], null, () => {
@@ -1752,7 +1464,7 @@ function interactCatSpot(){
     // Night time - cat is here!
     if(!G.flags.catTalked && G.questStage >= 4){
       // Cat interaction
-      startDialogue('黑白小猫', '🐱', [
+      startDialogue('犹豫小猫', '🐱', [
         '……你又来了。',
         '哦，你不是来拿快递的。你在找那只傻狗？',
       ], [
@@ -1767,23 +1479,23 @@ function interactCatSpot(){
         }},
       ]);
     } else if(G.flags.catTalked && G.questStage < 8){
-      startDialogue('黑白小猫', '🐱', [
+      startDialogue('犹豫小猫', '🐱', [
         '你还没去SM商场吗？快乐小狗被困在东侧仓库里，快去吧。',
         '从地下车库B2有个通道能直接进商场。',
       ]);
     } else if(G.questStage < 4){
-      startDialogue('黑白小猫', '🐱', [
+      startDialogue('犹豫小猫', '🐱', [
         '……你连它去了哪都不知道就来找我？',
         '去幼儿园那边看看吧，它今天早上去过那里。',
       ]);
     } else {
-      startDialogue('黑白小猫', '🐱', ['……谢谢你。']);
+      startDialogue('犹豫小猫', '🐱', ['……谢谢你。']);
     }
   }
 }
 
 function catDialoguePath1(){
-  startDialogue('黑白小猫', '🐱', [
+  startDialogue('犹豫小猫', '🐱', [
     '认识。那只傻狗，每天偷偷从茶叶店给我带饼干。它说我是它最好的朋友。',
     '可我连它走丢都没拦住……',
     '它追蝴蝶跑进了幼儿园，被一声巨响吓到，钻进了地下车库。',
@@ -1793,13 +1505,13 @@ function catDialoguePath1(){
     G.flags.catTalked = true;
     G.questStage = 7;
     G.flags.mallEastUnlocked = true;
-    showToast('黑白小猫指引：快乐小狗在SM商场东侧仓库');
+    showToast('犹豫小猫指引：快乐小狗在SM商场东侧仓库');
     updateQuestLog();
   });
 }
 
 function catDialoguePath2(){
-  startDialogue('黑白小猫', '🐱', [
+  startDialogue('犹豫小猫', '🐱', [
     '……难过？也许吧。',
     '那只傻狗快乐小狗，每天偷偷从茶叶店给我带饼干。它说我是它最好的朋友。',
     '可我白天不敢出来……别的猫都笑我孤零零的。只有晚上才敢来这里待着。',
@@ -1811,14 +1523,14 @@ function catDialoguePath2(){
     G.questStage = 7;
     G.flags.mallEastUnlocked = true;
     G.clues.add('cat_friendship');
-    showToast('黑白小猫指引：快乐小狗在SM商场东侧仓库');
-    showToast('隐藏线索：黑白小猫与快乐小狗的友情');
+    showToast('犹豫小猫指引：快乐小狗在SM商场东侧仓库');
+    showToast('隐藏线索：犹豫小猫与快乐小狗的友情');
     updateQuestLog();
   });
 }
 
 function catDialoguePath3(){
-  startDialogue('黑白小猫', '🐱', [
+  startDialogue('犹豫小猫', '🐱', [
     '……（嗅了嗅项圈）是快乐小狗的味道。',
     '它今天早上追蝴蝶跑进了幼儿园，被吓到后钻进了地下车库。',
     '从B2跑到了SM商场，被困在东侧仓库里了。',
@@ -1827,7 +1539,7 @@ function catDialoguePath3(){
     G.flags.catTalked = true;
     G.questStage = 7;
     G.flags.mallEastUnlocked = true;
-    showToast('黑白小猫指引：快乐小狗在SM商场东侧仓库');
+    showToast('犹豫小猫指引：快乐小狗在SM商场东侧仓库');
     updateQuestLog();
   });
 }
@@ -1916,7 +1628,7 @@ function interactB2Clue(){
       updateQuestLog();
     });
   } else if(G.questStage >= 7){
-    startDialogue('旁白', '🔍', ['应急出口的门半开着。黑白小猫说快乐小狗在SM商场东侧仓库。快过去吧！']);
+    startDialogue('旁白', '🔍', ['应急出口的门半开着。犹豫小猫说快乐小狗在SM商场东侧仓库。快过去吧！']);
   } else {
     startDialogue('旁白', '🔍', ['B2层很暗，没什么特别的。']);
   }
@@ -2062,7 +1774,7 @@ function renderPuzzleChoices(){
                     startDialogue('旁白', '🐾', [
                       '你抱起快乐小狗，它温顺地靠在你怀里。',
                       '你想起了卡皮巴拉的话——"在找到快乐小狗的时候，吹响海螺。"',
-                      '黑白小猫会听见的。它会来找它的家人。',
+                      '犹豫小猫会听见的。它会来找它的家人。',
                     ], [
                       {text: '吹响海螺', callback: () => {
                         G.flags.conchBlown = true;
@@ -2072,11 +1784,11 @@ function renderPuzzleChoices(){
                           '海螺发出悠远而清澈的声响，穿透了商场的墙壁，飘向远方。',
                           '……',
                           '片刻后，仓库门口传来细微的脚步声。',
-                          '一个黑白相间的小身影出现在门口——是黑白小猫！',
+                          '一个黑白相间的小身影出现在门口——是犹豫小猫！',
                           '它看到快乐小狗的瞬间，发出一声长长的喵叫。',
-                          '快乐小狗从你怀里挣脱，扑向黑白小猫，两个小家伙紧紧依偎在一起。',
+                          '快乐小狗从你怀里挣脱，扑向犹豫小猫，两个小家伙紧紧依偎在一起。',
                           '它们是家人。终于团聚了。',
-                          '【带快乐小狗和黑白小猫一起回茶叶店】',
+                          '【带快乐小狗和犹豫小猫一起回茶叶店】',
                         ], null, () => {
                           G.flags.hiddenEnding = true;
                           transitionToScene('teashop');
@@ -2304,13 +2016,13 @@ function interactBeachSpot(){
     if(G.inventory.dogFood){
       lines.push('你放下一些狗粮，希望能引它回来，但快乐小狗已经不在附近了。');
       lines.push('不过你注意到爪印旁边有一些猫的脚印——黑白相间的毛发粘在芦苇上。');
-      lines.push('看来那只黑白小猫也来过这里……也许它一直在跟踪快乐小狗的踪迹。');
+      lines.push('看来那只犹豫小猫也来过这里……也许它一直在跟踪快乐小狗的踪迹。');
       G.clues.add('beach_dogfood');
     }
     if(G.inventory.catFood){
       lines.push('你把猫粮放在礁石旁。过了一会儿，远处芦苇丛中传来窸窣声……');
-      lines.push('一个黑白相间的小身影探出头来——是黑白小猫！它小心翼翼地走过来吃猫粮。');
-      lines.push('黑白小猫吃完后看了你一眼，似乎不那么排斥你了。它转身走向南方，消失在芦苇中。');
+      lines.push('一个黑白相间的小身影探出头来——是犹豫小猫！它小心翼翼地走过来吃猫粮。');
+      lines.push('犹豫小猫吃完后看了你一眼，似乎不那么排斥你了。它转身走向南方，消失在芦苇中。');
       lines.push('也许今晚在快递驿站见到它时，它会更愿意开口。');
       G.clues.add('beach_catfood');
       G.clues.add('cat_friendship');
@@ -2324,7 +2036,7 @@ function interactBeachSpot(){
   } else {
     var extra = '沙滩上还有快乐小狗留下的爪印痕迹。';
     if(G.inventory.catFood && !G.clues.has('beach_catfood')){
-      extra += '也许可以放些猫粮引黑白小猫出来？';
+      extra += '也许可以放些猫粮引犹豫小猫出来？';
     }
     startDialogue('旁白', '🏖️', [extra]);
   }
@@ -2343,7 +2055,7 @@ function interactBeachCar(){
 
 // Wrapper for NPC draw (capybara is awake after revealing truth)
 function drawCapybaraLazy(ctx, x, y){
-  drawCapybara(ctx, x, y, G.flags.capybaraRevealed);
+  drawNpcBillboard(ctx, 'capybara', x, y, 56);
 }
 
 // --- Capybara interaction ---
@@ -2355,7 +2067,7 @@ function interactCapybara(){
       '（一只巨大的卡皮巴拉趴在沙滩中央，头顶顶着个小橘子，闭目养神。）',
       '……你来了。',
       '别紧张，我是这片海滩的守望者。你可以叫我卡皮巴拉。',
-      '你在找那只快乐小狗？我看见它经过这里了。也看见那只黑白小猫一路跟着它。',
+      '你在找那只快乐小狗？我看见它经过这里了。也看见那只犹豫小猫一路跟着它。',
       '想让我告诉你真相？可以。但真相需要耐心和智慧来换取。',
       '完成我的三道试炼，我就告诉你一切。',
       '试炼一：贝壳推阵——把沙滩上的贝壳推入凹槽。',
@@ -2374,13 +2086,13 @@ function interactCapybara(){
       '……三道试炼，你都完成了。',
       '（卡皮巴拉缓缓睁开眼睛，目光深邃而温和。）',
       '你很有耐心。现在，我告诉你真相。',
-      '那只快乐小狗和那只黑白小猫，曾经是同一个主人养的伙伴。',
+      '那只快乐小狗和那只犹豫小猫，曾经是同一个主人养的伙伴。',
       '它们的主人搬走了，把它们留在了小区里。',
-      '快乐小狗被茶叶店的老陈收留了，但黑白小猫一直不敢靠近人，只能在外面流浪。',
-      '快乐小狗每天偷偷从茶叶店带饼干出去，就是为了给黑白小猫吃。',
+      '快乐小狗被茶叶店的老陈收留了，但犹豫小猫一直不敢靠近人，只能在外面流浪。',
+      '快乐小狗每天偷偷从茶叶店带饼干出去，就是为了给犹豫小猫吃。',
       '它们不是朋友——它们是家人。唯一彼此拥有的家人。',
       '这只海螺给你。在找到快乐小狗的时候，吹响它。',
-      '黑白小猫会听见的。它会来找它的家人。',
+      '犹豫小猫会听见的。它会来找它的家人。',
       '【获得道具：海螺】',
     ], null, () => {
       G.flags.capybaraRevealed = true;
@@ -3330,7 +3042,7 @@ const questSteps = [
   {id:'beach', text:'（支线）开车去荻花洲寻找线索', hint:'B1层找到车，开车去海边查看爪印', optional:true},
   {id:'capybara', text:'（支线）完成卡皮巴拉的三道试炼', hint:'在荻花洲找卡皮巴拉，完成贝壳/礁石/芦苇谜题', optional:true},
   {id:'b2', text:'在B2层修复电路并寻找快乐小狗去向', hint:'下到B2层，旋转管道连通电路，调查应急出口'},
-  {id:'cat', text:'夜晚去快递驿站找黑白小猫', hint:'22:00后在快递驿站寻找黑白小猫，可用时间跳过'},
+  {id:'cat', text:'夜晚去快递驿站找犹豫小猫', hint:'22:00后在快递驿站寻找犹豫小猫，可用时间跳过'},
   {id:'mall', text:'前往SM商场东侧仓库救出快乐小狗', hint:'从B2应急通道进入SM商场，推箱子救出快乐小狗'},
   {id:'return', text:'将快乐小狗送回茶叶店', hint:'回到陈记茶叶店找老陈（有海螺可吹响触发隐藏结局）'},
 ];
@@ -3423,7 +3135,7 @@ function restToNight(){
   setTimeout(() => {
     G.time = 22.0;
     document.getElementById('transition').classList.remove('show');
-    if(isNight()) showToast('夜幕降临，黑白小猫应该出现在快递驿站了');
+    if(isNight()) showToast('夜幕降临，犹豫小猫应该出现在快递驿站了');
   }, 1200);
 }
 
@@ -3469,11 +3181,11 @@ function showEnding(goodEnding){
   if(G.flags.hiddenEnding){
     document.getElementById('endingText').innerHTML = `
       海螺的回声穿过商场，穿过街道，穿过芦苇丛。<br><br>
-      黑白小猫循着声音找到了快乐小狗，<br>
+      犹豫小猫循着声音找到了快乐小狗，<br>
       两个小家伙紧紧依偎在一起，再也不愿分开。<br><br>
-      老陈收养了黑白小猫，茶叶店从此多了个小小的常客。<br>
+      老陈收养了犹豫小猫，茶叶店从此多了个小小的常客。<br>
       快乐小狗每天依然会偷带饼干——不过这次，<br>
-      它会把饼干放在黑白小猫的窝旁边，<br>
+      它会把饼干放在犹豫小猫的窝旁边，<br>
       然后心满意足地趴在一旁。<br><br>
       荻花洲的沙滩上，卡皮巴拉头顶顶着橘子，<br>
       闭着眼睛，嘴角似乎微微上扬。<br><br>
@@ -3481,9 +3193,9 @@ function showEnding(goodEnding){
     `;
   } else if(goodEnding){
     document.getElementById('endingText').innerHTML = `
-      你找到了快乐小狗，并让它和黑白小猫重新建立了联系。<br><br>
-      老陈每天都会给黑白小猫留饼干，<br>
-      快乐小狗也常常去找黑白小猫玩耍。<br><br>
+      你找到了快乐小狗，并让它和犹豫小猫重新建立了联系。<br><br>
+      老陈每天都会给犹豫小猫留饼干，<br>
+      快乐小狗也常常去找犹豫小猫玩耍。<br><br>
       有时候，一次寻找不只是找回丢失的东西，<br>
       更是找回被忽略的温暖。<br><br>
       <strong style="color:#ffd966">【结局：猫狗情谊】</strong><br>
@@ -3706,7 +3418,7 @@ function render(){
       ctx.roundRect(catX - 40, catY - 42, 80, 16, 4);
       ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.fillText('黑白小猫', catX, catY - 30);
+      ctx.fillText('犹豫小猫', catX, catY - 30);
       ctx.textAlign = 'left';
     }
   }
@@ -3745,32 +3457,16 @@ function render(){
 function drawTitleBg(){
   const tc = document.getElementById('titleBgCanvas');
   const tctx = tc.getContext('2d');
-  tctx.fillStyle = '#2a1f3e';
+  const img = imgCache['cover'];
+  if(img && img.complete){
+    tctx.drawImage(img, 0, 0, 800, 600);
+  } else {
+    tctx.fillStyle = '#2a1f3e';
+    tctx.fillRect(0,0,800,600);
+  }
+  // Add dark overlay for text readability
+  tctx.fillStyle = 'rgba(30,20,40,0.5)';
   tctx.fillRect(0,0,800,600);
-  // Stars
-  for(let i=0;i<50;i++){
-    const x = (i*73)%800, y = (i*47)%300;
-    tctx.fillStyle = `rgba(255,255,255,${0.3+Math.sin(i)*0.2})`;
-    tctx.beginPath(); tctx.arc(x,y,1.5,0,Math.PI*2); tctx.fill();
-  }
-  // Moon
-  tctx.fillStyle = '#ffd966';
-  tctx.beginPath(); tctx.arc(650, 100, 40, 0, Math.PI*2); tctx.fill();
-  tctx.fillStyle = '#2a1f3e';
-  tctx.beginPath(); tctx.arc(635, 90, 35, 0, Math.PI*2); tctx.fill();
-  // Ground
-  tctx.fillStyle = '#3d2b1f';
-  tctx.fillRect(0, 400, 800, 200);
-  // Buildings silhouette
-  tctx.fillStyle = '#1a1020';
-  for(let i=0;i<8;i++){
-    const x = i*100, h = 80+Math.sin(i)*30;
-    tctx.fillRect(x, 400-h, 90, h);
-  }
-  // Draw puppy silhouette
-  drawPuppy(tctx, 400, 480, true);
-  // Draw cat silhouette
-  drawCat(tctx, 320, 490, true);
 }
 drawTitleBg();
 
