@@ -181,7 +181,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Ending Screen (outside uiLayer for full-viewport coverage) -->
 <div id="endingScreen">
-  <div class="ending-title">任务完成！</div>
+  <div class="ending-title" id="endingTitle">任务完成！</div>
   <div class="ending-text" id="endingText"></div>
   <button class="title-btn touch-btn" id="restartBtn" style="pointer-events:auto;">再玩一次</button>
 </div>
@@ -4118,12 +4118,12 @@ function startHorrorFinalEncounter(){
 function horrorFinalQ3(){
   startDialogue('红', '👁️', [
     '......谢谢你。',
-    '最后一件事。',
-    '我的遗骸......在哪里？',
+    '我的遗骸......就埋在这祭坛之下。',
+    '你愿意帮我超度，还是......封印这一切？',
   ], [
-    {text: '地下室', callback: function(){ horrorEnding('seal'); }},
-    {text: '花坛下', callback: function(){ horrorEnding('seal'); }},
-    {text: '祭坛下', callback: function(){ horrorEnding('good'); }},
+    {text: '超度她（移出遗骸安葬）', callback: function(){ horrorEnding('good'); }},
+    {text: '封印（烧毁照片，忘掉一切）', callback: function(){ horrorEnding('seal'); }},
+    {text: '......我害怕，先离开', callback: function(){ horrorEnding('escape'); }},
   ]);
 }
 
@@ -4135,8 +4135,8 @@ function horrorEnding(type){
     horrorJumpScare('ghost_red_tears', 500);
     setTimeout(function(){
       startDialogue('红', '👁️', [
-        '......祭坛下。',
-        '是的，就在那里。',
+        '......你愿意帮我。',
+        '移出遗骸的那一刻，我感到温暖。',
         '谢谢你......终于可以安息了。',
       ], null, function(){
         showHorrorEnding('good');
@@ -4145,9 +4145,9 @@ function horrorEnding(type){
   } else if(type === 'seal'){
     // Seal ending
     startDialogue('红', '👁️', [
-      '......不是那里。',
-      '看来你也帮不了我。',
-      '烧掉那些照片吧，忘掉一切。',
+      '......你选择封印。',
+      '也好，也许忘掉一切对所有人都好。',
+      '烧掉那些照片吧，让一切归于沉寂。',
     ], null, function(){
       showHorrorEnding('seal');
     });
