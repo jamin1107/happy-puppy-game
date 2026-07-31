@@ -479,7 +479,9 @@ const imagePaths = {
   teacher: 'assets/images/teacher.jpg',
   guard: 'assets/images/guard.jpg',
   cashier: 'assets/images/cashier.jpg',
-  // Horror quest images
+};
+// Horror quest images - loaded on demand when horror quest starts
+const horrorImagePaths = {
   ghost_red_tears: 'assets/images/ghost_red_tears.jpg',
   ghost_scream: 'assets/images/ghost_scream.jpg',
   ghost_reach: 'assets/images/ghost_reach.jpg',
@@ -492,6 +494,17 @@ const imagePaths = {
   mirror_room: 'assets/images/mirror_room_bg.jpg',
   ritual_room: 'assets/images/ritual_room_bg.jpg',
 };
+var horrorImagesLoaded = false;
+function loadHorrorImages(){
+  if(horrorImagesLoaded) return;
+  horrorImagesLoaded = true;
+  for(const [key, path] of Object.entries(horrorImagePaths)){
+    if(imgCache[key]) continue;
+    const img = new Image();
+    img.onload = () => { imgCache[key] = img; };
+    img.src = path;
+  }
+}
 function loadImages(){
   for(const [key, path] of Object.entries(imagePaths)){
     const img = new Image();
@@ -1618,6 +1631,7 @@ function interactWang(){
     } else if(G.flags.wangClickCount >= 3){
       // Trigger horror quest!
       G.flags.horrorStarted = true;
+      loadHorrorImages(); // 按需加载恐怖图片
       // Flash white + show shadow ghost
       horrorJumpScare('ghost_shadow', 300, function(){
         startDialogue('旁白', '🔍', [
