@@ -306,41 +306,69 @@ canvas.width = CW;
 canvas.height = CH;
 
 // ---- Resize ----
-// contain模式：canvas等比缩放居中，完整显示不变形不裁剪
+// 竖屏手机: canvas填满全屏(fill模式)，裁剪超出部分，最大化利用屏幕像素
+// 横屏/宽屏: contain等比缩放，完整显示不裁剪
 // canvas内部分辨率 = CSS尺寸 × DPR = 屏幕物理像素，实现1:1像素级清晰渲染
 var renderScale = 1;
+var canvasOffsetX = 0, canvasOffsetY = 0; // 游戏坐标偏移（fill模式下裁剪偏移）
 function resizeCanvas(){
-  // 使用 visualViewport 获取更准确的视口尺寸（iOS Safari 地址栏收缩时会变化）
   var vv = window.visualViewport;
   var ww = vv ? vv.width : window.innerWidth;
   var wh = vv ? vv.height : window.innerHeight;
   var dpr = window.devicePixelRatio || 1;
   if(dpr > 3) dpr = 3;
-  // contain模式：canvas等比缩放居中，完整显示不变形不裁剪
-  const scale = Math.min(ww / CW, wh / CH);
-  const scaledW = CW * scale;
-  const scaledH = CH * scale;
-  const offsetX = (ww - scaledW) / 2;
-  const offsetY = (wh - scaledH) / 2;
-  // canvas内部分辨率精确匹配物理像素，1:1渲染无模糊
-  var cw = Math.round(scaledW * dpr);
-  var ch = Math.round(scaledH * dpr);
-  // 避免不必要的重设（重设canvas.width会清空内容并重置context）
-  if(canvas.width !== cw || canvas.height !== ch){
-    canvas.width = cw;
-    canvas.height = ch;
+  
+  var isPortrait = wh > ww; // 竖屏
+  
+  if(isPortrait){
+    // 竖屏: 按宽度缩放填满屏幕宽度，高度居中（上下可能有黑边但不裁剪左右）
+    // 这样canvas宽度=屏幕宽度，最大化像素利用率，画面清晰
+    var scale = ww / CW;
+    var scaledW = CW * scale; // = ww
+    var scaledH = CH * scale; // 600 * (ww/800) < wh，高度不足有黑边
+    var offsetX = 0;
+    var offsetY = (wh - scaledH) / 2;
+    var cw = Math.round(scaledW * dpr);
+    var ch = Math.round(scaledH * dpr);
+    if(canvas.width !== cw || canvas.height !== ch){
+      canvas.width = cw;
+      canvas.height = ch;
+    }
+    canvas.style.width = scaledW + 'px';
+    canvas.style.height = scaledH + 'px';
+    canvas.style.position = 'fixed';
+    canvas.style.left = offsetX + 'px';
+    canvas.style.top = offsetY + 'px';
+    renderScale = scale * dpr;
+    ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+  } else {
+    // 横屏: contain模式 - 等比缩放居中，完整显示不裁剪
+    var scale = Math.min(ww / CW, wh / CH);
+    var cScaledW = CW * scale;
+    var cScaledH = CH * scale;
+    var cOffsetX = (ww - cScaledW) / 2;
+    var cOffsetY = (wh - cScaledH) / 2;
+    var ccw = Math.round(cScaledW * dpr);
+    var cch = Math.round(cScaledH * dpr);
+    if(canvas.width !== ccw || canvas.height !== cch){
+      canvas.width = ccw;
+      canvas.height = cch;
+    }
+    canvas.style.width = cScaledW + 'px';
+    canvas.style.height = cScaledH + 'px';
+    canvas.style.position = 'fixed';
+    canvas.style.left = cOffsetX + 'px';
+    canvas.style.top = cOffsetY + 'px';
+    renderScale = scale * dpr;
+    ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   }
-  canvas.style.width = scaledW + 'px';
-  canvas.style.height = scaledH + 'px';
-  canvas.style.position = 'fixed';
-  canvas.style.left = offsetX + 'px';
-  canvas.style.top = offsetY + 'px';
-  // 缩放因子 = scale × dpr，使800x600游戏坐标映射到物理像素
-  renderScale = scale * dpr;
-  ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+  
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  // UI层填满整个屏幕（不受canvas缩放限制）
+  // 对于背景图等大幅图片，使用高质量插值
+  // 但在DPR>1的设备上，800坐标空间的图片会被二次缩放，可能导致模糊
+  // 解决：在drawSceneBg中直接按canvas物理像素绘制背景图
+  // UI层填满整个屏幕
   const ui = document.getElementById('uiLayer');
   ui.style.width = ww + 'px';
   ui.style.height = wh + 'px';
@@ -1387,7 +1415,12 @@ function drawSceneBg(ctx, sceneName){
   // Draw AI-generated background image
   const img = imgCache[sceneName];
   if(img && img.complete){
-    ctx.drawImage(img, 0, 0, CW, CH);
+    // 直接按canvas物理像素绘制，绕过transform的二次缩放，避免模糊
+    // 保存当前transform，重置为identity，按物理像素绘制背景，再恢复
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
   } else {
     // Fallback gradient while loading
     const fallbackColors = {
@@ -3718,7 +3751,9 @@ function drawHorrorFlash(ctx){
     if(img && img.complete){
       ctx.save();
       ctx.globalAlpha = Math.min(1, horrorFlashTimer / 200);
-      ctx.drawImage(img, 0, 0, CW, CH);
+      // 直接按canvas物理像素绘制，避免transform二次缩放模糊
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       ctx.restore();
     } else {
       // Fallback white flash
