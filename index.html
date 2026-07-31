@@ -21,7 +21,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 .hud-time{background:rgba(30,25,20,0.75);backdrop-filter:blur(8px);border-radius:10px;padding:6px 14px;color:#ffd966;font-size:15px;font-weight:700;font-family:'Courier New',monospace;letter-spacing:1px;}
 
 /* Interaction prompt */
-#interactPrompt{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(217,119,87,0.95);color:#fff;padding:8px 20px;border-radius:20px;font-size:14px;font-weight:600;display:none;pointer-events:none;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.3);white-space:nowrap;}
+#interactPrompt{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(217,119,87,0.95);color:#fff;padding:8px 20px;border-radius:20px;font-size:14px;font-weight:600;display:none !important;pointer-events:none;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.3);white-space:nowrap;}
 #interactPrompt.show{display:block;animation:bounce 0.6s ease infinite alternate;}
 @keyframes bounce{from{transform:translateX(-50%) translateY(0);}to{transform:translateX(-50%) translateY(-4px);}}
 
@@ -205,8 +205,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
   <button class="title-btn touch-btn" id="restartBtn" style="pointer-events:auto;">再玩一次</button>
 </div>
 
-<!-- Touch controls -->
-<div id="touchControls">
+<!-- Touch controls (hidden - point-and-click mode) -->
+<div id="touchControls" style="display:none;">
   <div class="joystick-base" id="joystickBase">
     <div class="joystick-knob" id="joystickKnob"></div>
   </div>
@@ -414,23 +414,70 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-// Canvas click for minigames
+// Handle scene clicks (point-and-click interactions)
+function handleSceneClick(x, y){
+  if(G.state !== 'playing') return;
+  const sc = scenes[G.scene];
+  // Check NPC clicks
+  for(const npc of sc.npcs){
+    if(Math.abs(x - npc.x) < 35 && Math.abs(y - npc.y) < 35){
+      npc.interact();
+      return;
+    }
+  }
+  // Check object clicks
+  for(const obj of sc.objects){
+    if(x > obj.x - 15 && x < obj.x + obj.w + 15 && y > obj.y - 15 && y < obj.y + obj.h + 15){
+      obj.interact();
+      return;
+    }
+  }
+  // Check cat at night
+  if(G.scene === 'delivery' && isNight()){
+    const catX = 600, catY = 130;
+    if(Math.abs(x - catX) < 35 && Math.abs(y - catY) < 35){
+      interactCatSpot();
+      return;
+    }
+  }
+  // Check exit clicks
+  for(const ex of sc.exits){
+    if(x > ex.x && x < ex.x + ex.w && y > ex.y && y < ex.y + ex.h){
+      if(ex.locked && !isExitUnlocked(ex)){
+        if(ex.to === 'parking_b1') showToast('门卫大爷挡着路，需要给他买烟');
+        else if(ex.to === 'beach') showToast('需要先找到车才能去荻花洲');
+        else showToast('这条路还通不了');
+        return;
+      }
+      if(ex.to === 'parking_b2' && G.questStage < 5 && !G.flags.b2Unlocked){
+        showToast('还需要更多线索才能继续往下');
+        return;
+      }
+      transitionToScene(ex.to);
+      return;
+    }
+  }
+}
+
+// Canvas click for minigames and scene interactions
 canvas.addEventListener('click', function(e){
-  if(G.state !== 'minigame') return;
   var rect = canvas.getBoundingClientRect();
   var scale = rect.width / CW;
   var x = (e.clientX - rect.left) / scale;
   var y = (e.clientY - rect.top) / scale;
+  if(G.state === 'playing'){ handleSceneClick(x, y); return; }
+  if(G.state !== 'minigame') return;
   miniGameCanvasClick(x, y);
 });
 canvas.addEventListener('touchend', function(e){
-  if(G.state !== 'minigame') return;
+  if(G.state !== 'playing' && G.state !== 'minigame') return;
   e.preventDefault();
   var touch = e.changedTouches[0];
   var rect = canvas.getBoundingClientRect();
   var scale = rect.width / CW;
   var x = (touch.clientX - rect.left) / scale;
   var y = (touch.clientY - rect.top) / scale;
+  if(G.state === 'playing'){ handleSceneClick(x, y); return; }
   miniGameCanvasClick(x, y);
 });
 
@@ -1147,42 +1194,8 @@ function drawSceneBg(ctx, sceneName){
     ctx.fillRect(0, 0, CW, CH);
   }
 
-  // Draw obstacles (semi-transparent overlays on top of AI background)
-  sc.obstacles.forEach(obs => drawObstacle(ctx, obs));
-
-  // Draw exits
-  sc.exits.forEach(ex => {
-    const locked = ex.locked && !isExitUnlocked(ex);
-    if(locked){
-      ctx.fillStyle = 'rgba(120,120,120,0.15)';
-      ctx.fillRect(ex.x, ex.y, ex.w, ex.h);
-      ctx.strokeStyle = 'rgba(180,180,180,0.4)';
-    } else {
-      ctx.fillStyle = 'rgba(217,119,87,0.2)';
-      ctx.fillRect(ex.x, ex.y, ex.w, ex.h);
-      ctx.strokeStyle = 'rgba(217,119,87,0.5)';
-    }
-    ctx.lineWidth = 2;
-    ctx.setLineDash(locked ? [3,3] : [5,5]);
-    ctx.strokeRect(ex.x, ex.y, ex.w, ex.h);
-    ctx.setLineDash([]);
-    // label
-    ctx.fillStyle = locked ? 'rgba(180,180,180,0.7)' : 'rgba(217,119,87,0.9)';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'center';
-    var labelText = ex.label + (locked ? ' 🔒' : '');
-    const lx = ex.x + ex.w/2, ly = ex.y + ex.h/2;
-    ctx.save();
-    ctx.translate(lx, ly);
-    if(ex.w < ex.h){
-      ctx.rotate(-Math.PI/2);
-      ctx.fillText(labelText, 0, 4);
-    } else {
-      ctx.fillText(labelText, 0, 4);
-    }
-    ctx.restore();
-    ctx.textAlign = 'left';
-  });
+  // Obstacles are no longer drawn (point-and-click mode, AI background images suffice)
+  // Exits are now drawn in render() with point-and-click styling
 }
 
 function isExitUnlocked(ex){
@@ -3151,8 +3164,6 @@ function transitionToScene(sceneName){
   document.getElementById('transition').classList.add('show');
   setTimeout(() => {
     G.scene = sceneName;
-    G.px = sc.playerStart.x;
-    G.py = sc.playerStart.y;
     document.getElementById('locationName').textContent = sc.name;
     setTimeout(() => {
       document.getElementById('transition').classList.remove('show');
@@ -3167,8 +3178,6 @@ function startGame(){
   document.getElementById('inventoryBar').style.display = 'flex';
   G.state = 'playing';
   G.scene = 'community';
-  G.px = scenes.community.playerStart.x;
-  G.py = scenes.community.playerStart.y;
   document.getElementById('locationName').textContent = scenes.community.name;
   // Initial guidance
   setTimeout(() => {
@@ -3246,96 +3255,10 @@ function gameLoop(timestamp){
 }
 
 function update(dt){
-  // Movement
-  let dx = 0, dy = 0;
-  if(keys['w'] || keys['arrowup']) { dy = -1; G.pdir = 'up'; }
-  if(keys['s'] || keys['arrowdown']) { dy = 1; G.pdir = 'down'; }
-  if(keys['a'] || keys['arrowleft']) { dx = -1; G.pdir = 'left'; }
-  if(keys['d'] || keys['arrowright']) { dx = 1; G.pdir = 'right'; }
-  // Touch joystick
-  if(joyActive && (Math.abs(joyDX) > 0.2 || Math.abs(joyDY) > 0.2)){
-    dx = joyDX; dy = joyDY;
-    if(Math.abs(joyDX) > Math.abs(joyDY)){
-      G.pdir = joyDX > 0 ? 'right' : 'left';
-    } else {
-      G.pdir = joyDY > 0 ? 'down' : 'up';
-    }
-  }
-
-  if(dx !== 0 || dy !== 0){
-    // Normalize
-    const len = Math.sqrt(dx*dx + dy*dy);
-    if(len > 1){ dx /= len; dy /= len; }
-    const newX = G.px + dx * G.pspeed;
-    const newY = G.py + dy * G.pspeed;
-    // Collision check
-    if(!checkCollision(newX, G.py)) G.px = newX;
-    if(!checkCollision(G.px, newY)) G.py = newY;
-    G.moving = true;
-    G.animTimer += dt;
-    if(G.animTimer > 60){ G.animFrame++; G.animTimer = 0; }
-  } else {
-    G.moving = false;
-  }
-
-  // Time progression
+  // Time progression only (no movement in point-and-click mode)
   G.time += G.timeSpeed * dt;
   if(G.time >= 24) G.time -= 24;
   document.getElementById('timeDisplay').textContent = getTimeLabel();
-
-  // Check exits
-  const sc = scenes[G.scene];
-  for(const ex of sc.exits){
-    if(G.px > ex.x && G.px < ex.x + ex.w && G.py > ex.y && G.py < ex.y + ex.h){
-      // Check locked exits
-      if(ex.locked && !isExitUnlocked(ex)){
-        if(ex.to === 'parking_b1'){
-          showToast('门卫大爷挡着路，需要给他买烟');
-        } else if(ex.to === 'beach'){
-          showToast('需要先找到车才能去荻花洲');
-        } else {
-          showToast('这条路还通不了');
-        }
-        G.px = sc.playerStart.x;
-        G.py = sc.playerStart.y;
-        return;
-      }
-      // Check for parking_b2 exit - only via object
-      if(ex.to === 'parking_b2'){
-        if(G.questStage < 5 && !G.flags.b2Unlocked){
-          showToast('还需要更多线索才能继续往下');
-          G.px = sc.playerStart.x;
-          G.py = sc.playerStart.y;
-          return;
-        }
-      }
-      transitionToScene(ex.to);
-      return;
-    }
-  }
-
-  // Check interaction proximity
-  G.nearInteract = null;
-  for(const npc of sc.npcs){
-    if(Math.abs(G.px - npc.x) < 50 && Math.abs(G.py - npc.y) < 50){
-      G.nearInteract = npc.interact;
-      showInteractPrompt(npc.name);
-      break;
-    }
-  }
-  if(!G.nearInteract){
-    for(const obj of sc.objects){
-      if(G.px > obj.x - 30 && G.px < obj.x + obj.w + 30 && 
-         G.py > obj.y - 30 && G.py < obj.y + obj.h + 30){
-        G.nearInteract = obj.interact;
-        showInteractPrompt('');
-        break;
-      }
-    }
-  }
-  if(!G.nearInteract){
-    document.getElementById('interactPrompt').classList.remove('show');
-  }
 }
 
 function showInteractPrompt(name){
@@ -3366,89 +3289,104 @@ function checkCollision(x, y){
 // ============================================================
 function render(){
   ctx.clearRect(0, 0, CW, CH);
+  // Draw AI background (obstacles no longer drawn inside drawSceneBg)
   drawSceneBg(ctx, G.scene);
-  
-  // Draw NPCs
+
   const sc = scenes[G.scene];
+
+  // Draw ALL NPCs as clickable hotspots (always show, not proximity-based)
   for(const npc of sc.npcs){
     npc.draw(ctx, npc.x, npc.y);
-    // Name tag
-    if(Math.abs(G.px - npc.x) < 100 && Math.abs(G.py - npc.y) < 100){
-      ctx.fillStyle = 'rgba(30,25,20,0.8)';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      const tw = ctx.measureText(npc.name).width + 10;
-      ctx.beginPath();
-      ctx.roundRect(npc.x - tw/2, npc.y - 35, tw, 16, 4);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.fillText(npc.name, npc.x, npc.y - 23);
-      ctx.textAlign = 'left';
-    }
+    // Name tag (always show)
+    const drawSize = npc.drawSize || 48;
+    ctx.fillStyle = 'rgba(30,25,20,0.8)';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    const tw = ctx.measureText(npc.name).width + 12;
+    ctx.beginPath(); ctx.roundRect(npc.x - tw/2, npc.y - drawSize/2 - 22, tw, 18, 4); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(npc.name, npc.x, npc.y - drawSize/2 - 8);
+    ctx.textAlign = 'left';
   }
-  
-  // Draw NPC-like objects (station owner)
+
+  // Draw interactive objects
   for(const obj of sc.objects){
     if(obj.isNpcLike){
       obj.draw(ctx, obj.x, obj.y);
-    }
-    // Interaction indicator
-    if(Math.abs(G.px - obj.x - obj.w/2) < 50 && Math.abs(G.py - obj.y - obj.h/2) < 50){
-      ctx.fillStyle = 'rgba(217,119,87,0.9)';
-      ctx.beginPath();
-      ctx.arc(obj.x + obj.w/2, obj.y - 5, 4 + Math.sin(Date.now()/200)*1, 0, Math.PI*2);
-      ctx.fill();
+      // Name tag for NPC-like objects
+      if(obj.name){
+        const drawSize = obj.drawSize || 48;
+        ctx.fillStyle = 'rgba(30,25,20,0.8)';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        const tw = ctx.measureText(obj.name).width + 12;
+        ctx.beginPath(); ctx.roundRect(obj.x - tw/2, obj.y - drawSize/2 - 22, tw, 18, 4); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(obj.name, obj.x, obj.y - drawSize/2 - 8);
+        ctx.textAlign = 'left';
+      }
+    } else {
+      // Pulsing interaction dot
+      const cx = obj.x + obj.w/2, cy = obj.y + obj.h/2;
+      const pulse = 6 + Math.sin(Date.now()/300)*2;
+      ctx.fillStyle = 'rgba(255,217,102,0.3)';
+      ctx.beginPath(); ctx.arc(cx, cy, pulse+4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,217,102,0.9)';
+      ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, Math.PI*2); ctx.fill();
     }
   }
-  
-  // Draw cat at night in delivery station
+
+  // Draw cat at night in delivery station (always show name tag)
   if(G.scene === 'delivery' && isNight()){
     const catX = 600, catY = 130;
     drawCat(ctx, catX, catY, !G.flags.catTalked);
-    // Interaction indicator
-    if(Math.abs(G.px - catX) < 60 && Math.abs(G.py - catY) < 60){
-      ctx.fillStyle = 'rgba(124,154,138,0.9)';
-      ctx.beginPath();
-      ctx.arc(catX, catY - 25, 4 + Math.sin(Date.now()/200)*1, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(30,25,20,0.8)';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.beginPath();
-      ctx.roundRect(catX - 40, catY - 42, 80, 16, 4);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.fillText('犹豫小猫', catX, catY - 30);
-      ctx.textAlign = 'left';
-    }
+    ctx.fillStyle = 'rgba(30,25,20,0.8)';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.beginPath(); ctx.roundRect(catX - 42, catY - 42, 84, 18, 4); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText('犹豫小猫', catX, catY - 28);
+    ctx.textAlign = 'left';
   }
-  
-  // Draw puppy in SM mall after puzzle solved
-  if(G.scene === 'sm_mall' && G.flags.puzzleSolved && G.questStage < 8){
-    // Already handled by dialogue
-  }
-  if(G.scene === 'sm_mall' && G.flags.puzzleSolved && G.questStage >= 8 && !G.flags.puppyFound){
-    // Puppy is found
-  }
-  
+
   // Draw puppy in tea shop when quest complete
   if(G.scene === 'teashop' && G.questStage >= 10){
     drawPuppy(ctx, 350, 200, true);
   }
-  
-  // Draw player
-  drawPlayer(ctx, G.px, G.py, G.pdir, G.animFrame);
-  
-  // Night overlay
-  drawNightOverlay(ctx);
-  
-  // Interaction prompt on canvas (above player)
-  if(G.nearInteract && G.state === 'playing'){
-    ctx.fillStyle = 'rgba(217,119,87,0.9)';
-    ctx.beginPath();
-    ctx.arc(G.px, G.py - 35, 4 + Math.sin(Date.now()/200)*1, 0, Math.PI*2);
-    ctx.fill();
+
+  // Draw exits as labeled arrows (always visible)
+  for(const ex of sc.exits){
+    const locked = ex.locked && !isExitUnlocked(ex);
+    const cx = ex.x + ex.w/2, cy = ex.y + ex.h/2;
+    // Exit glow
+    ctx.fillStyle = locked ? 'rgba(120,120,120,0.2)' : 'rgba(124,154,138,0.25)';
+    ctx.fillRect(ex.x, ex.y, ex.w, ex.h);
+    ctx.strokeStyle = locked ? 'rgba(150,150,150,0.4)' : 'rgba(124,154,138,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash(locked ? [3,3] : [6,4]);
+    ctx.strokeRect(ex.x, ex.y, ex.w, ex.h);
+    ctx.setLineDash([]);
+    // Label
+    ctx.fillStyle = locked ? 'rgba(180,180,180,0.8)' : 'rgba(124,154,138,1)';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.save();
+    ctx.translate(cx, cy);
+    if(ex.w < ex.h) ctx.rotate(-Math.PI/2);
+    ctx.fillText(ex.label + (locked ? ' 🔒' : ''), 0, 5);
+    ctx.restore();
+    ctx.textAlign = 'left';
   }
+
+  // Night overlay (drawn after hotspots so it tints everything)
+  drawNightOverlay(ctx);
+
+  // Hint text
+  ctx.fillStyle = 'rgba(30,25,20,0.6)';
+  ctx.font = '13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('点击发光点交互 · 点击箭头切换场景', CW/2, CH - 12);
+  ctx.textAlign = 'left';
 }
 
 // ============================================================
