@@ -307,26 +307,30 @@ canvas.height = CH;
 
 // ---- Resize ----
 // contain模式：canvas等比缩放居中，完整显示不变形不裁剪
-// UI层填满整个屏幕，黑边区域用来放UI元素
+// canvas内部分辨率 = CSS尺寸 × DPR = 屏幕物理像素，实现1:1像素级清晰渲染
+var renderScale = 1;
 function resizeCanvas(){
   const ww = window.innerWidth, wh = window.innerHeight;
-  const scale = Math.min(ww / CW, wh / CH);
-  const scaledW = Math.round(CW * scale);
-  const scaledH = Math.round(CH * scale);
-  const offsetX = Math.round((ww - scaledW) / 2);
-  const offsetY = Math.round((wh - scaledH) / 2);
-  // 使用devicePixelRatio提升canvas内部分辨率，消除手机端模糊
   var dpr = window.devicePixelRatio || 1;
-  if(dpr > 3) dpr = 3; // 限制最大3倍，避免内存过大
-  canvas.width = Math.round(CW * dpr);
-  canvas.height = Math.round(CH * dpr);
+  if(dpr > 3) dpr = 3;
+  const scale = Math.min(ww / CW, wh / CH);
+  const scaledW = CW * scale;
+  const scaledH = CH * scale;
+  const offsetX = (ww - scaledW) / 2;
+  const offsetY = (wh - scaledH) / 2;
+  // canvas内部分辨率精确匹配物理像素，1:1渲染无模糊
+  canvas.width = Math.round(scaledW * dpr);
+  canvas.height = Math.round(scaledH * dpr);
   canvas.style.width = scaledW + 'px';
   canvas.style.height = scaledH + 'px';
   canvas.style.position = 'fixed';
   canvas.style.left = offsetX + 'px';
   canvas.style.top = offsetY + 'px';
-  // 重置transform并按dpr缩放，使绘制坐标仍为800x600
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // 缩放因子 = scale × dpr，使800x600游戏坐标映射到物理像素
+  renderScale = scale * dpr;
+  ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   // UI层填满整个屏幕（不受canvas缩放限制）
   const ui = document.getElementById('uiLayer');
   ui.style.width = ww + 'px';
