@@ -7,10 +7,10 @@
 <title>快乐小狗寻回记</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif;touch-action:none;user-select:none;}
-#gameWrapper{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1a2e;}
-#gameCanvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-shadow:0 0 40px rgba(0,0,0,0.5);}
-#uiLayer{position:absolute;inset:0;pointer-events:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif;touch-action:none;user-select:none;}
+#gameWrapper{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a1a2e 0%,#0d0d1a 100%);}
+#gameCanvas{display:block;box-shadow:0 0 60px rgba(0,0,0,0.6);border-radius:2px;}
+#uiLayer{position:absolute;pointer-events:none;transform-origin:top left;}
 .touch-btn{pointer-events:auto;}
 
 /* HUD */
@@ -52,18 +52,24 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 .quest-hint{font-size:12px;color:#d97757;margin-top:3px;font-weight:600;}
 
 /* Title screen */
-#titleScreen{position:absolute;inset:0;background:linear-gradient(180deg,#2a1f3e 0%,#3d2b1f 50%,#5c3a2e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:40;}
+#titleScreen{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:#0d0d1a;}
 #titleScreen.hide{display:none;}
-.title-bg{position:absolute;inset:0;opacity:0.15;}
-.title-content{position:relative;z-index:2;text-align:center;}
-.title-name{font-size:42px;font-weight:900;color:#ffd966;text-shadow:0 4px 20px rgba(0,0,0,0.5);margin-bottom:8px;letter-spacing:2px;}
-.title-sub{font-size:16px;color:#e8916f;margin-bottom:36px;font-weight:600;}
-.title-btn{background:linear-gradient(135deg,#d97757,#e8916f);color:#fff;border:none;padding:14px 48px;font-size:18px;font-weight:700;border-radius:30px;cursor:pointer;font-family:inherit;box-shadow:0 8px 24px rgba(217,119,87,0.4);transition:transform 0.15s;pointer-events:auto;}
-.title-btn:hover{transform:scale(1.05);}
-.title-tip{margin-top:20px;font-size:12px;color:rgba(255,255,255,0.5);}
+#titleBgImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s ease;}
+#titleBgImg.loaded{opacity:1;}
+.title-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,13,26,0.3) 0%,rgba(13,13,26,0.5) 50%,rgba(13,13,26,0.85) 100%);}
+.title-content{position:relative;z-index:2;text-align:center;padding:0 24px;max-width:520px;}
+.title-deco{width:60px;height:3px;background:linear-gradient(90deg,transparent,#ffd966,transparent);margin:0 auto 20px;border-radius:2px;}
+.title-name{font-size:clamp(28px,7vw,48px);font-weight:900;color:#ffd966;text-shadow:0 4px 24px rgba(0,0,0,0.7),0 0 40px rgba(255,217,102,0.2);margin-bottom:6px;letter-spacing:3px;}
+.title-sub{font-size:clamp(13px,3.5vw,17px);color:#e8916f;margin-bottom:40px;font-weight:600;text-shadow:0 2px 12px rgba(0,0,0,0.6);letter-spacing:1px;}
+.title-btn{background:linear-gradient(135deg,#d97757,#e8916f);color:#fff;border:none;padding:16px 56px;font-size:clamp(16px,4vw,19px);font-weight:700;border-radius:32px;cursor:pointer;font-family:inherit;box-shadow:0 8px 32px rgba(217,119,87,0.5),0 0 0 0 rgba(217,119,87,0.4);transition:all 0.3s;pointer-events:auto;animation:titleBtnPulse 2.5s ease infinite;}
+.title-btn:hover,.title-btn:active{transform:scale(1.06);box-shadow:0 12px 40px rgba(217,119,87,0.6);}
+@keyframes titleBtnPulse{0%,100%{box-shadow:0 8px 32px rgba(217,119,87,0.5),0 0 0 0 rgba(217,119,87,0.4);}50%{box-shadow:0 8px 32px rgba(217,119,87,0.5),0 0 0 16px rgba(217,119,87,0);}}
+.title-tip{margin-top:24px;font-size:clamp(11px,3vw,13px);color:rgba(255,255,255,0.55);line-height:1.6;text-shadow:0 1px 6px rgba(0,0,0,0.5);}
+.title-tags{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.title-tag{font-size:11px;color:rgba(255,217,102,0.7);border:1px solid rgba(255,217,102,0.25);border-radius:12px;padding:3px 12px;background:rgba(255,217,102,0.05);}
 
 /* Ending screen */
-#endingScreen{position:absolute;inset:0;background:linear-gradient(180deg,#2a1f3e 0%,#5c3a2e 100%);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:40;text-align:center;padding:40px;}
+#endingScreen{position:fixed;inset:0;background:linear-gradient(180deg,#2a1f3e 0%,#5c3a2e 100%);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:40;text-align:center;padding:40px;}
 #endingScreen.show{display:flex;}
 .ending-title{font-size:36px;font-weight:900;color:#ffd966;margin-bottom:16px;text-shadow:0 4px 20px rgba(0,0,0,0.5);}
 .ending-text{font-size:16px;color:#fff;line-height:1.8;max-width:400px;margin-bottom:28px;}
@@ -99,6 +105,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 .title-name{font-size:32px;}
 .title-sub{font-size:14px;}
 .ending-title{font-size:28px;}
+.hud-badge{font-size:11px;padding:5px 9px;}
+.hud-badge .icon{font-size:14px;}
+.hud-time{font-size:13px;padding:5px 10px;}
+.dlg-name{font-size:14px;}
+.dlg-text{font-size:13px;line-height:1.7;}
+.dlg-choice{font-size:13px;padding:9px 14px;}
+.skip-btn{padding:3px 8px;font-size:11px;}
+.inv-item{font-size:11px;padding:3px 8px;}
+#dialogueBox{padding:16px 18px 20px;}
+.quest-panel{padding:20px 22px;}
+.quest-title{font-size:18px;}
+.quest-text{font-size:13px;}
 }
 
 /* Time skip buttons */
@@ -117,18 +135,34 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 <body>
 <div id="gameWrapper">
 <canvas id="gameCanvas"></canvas>
-<div id="uiLayer">
 
-<!-- Title Screen -->
+<!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <canvas class="title-bg" id="titleBgCanvas" width="800" height="600"></canvas>
+  <img id="titleBgImg" src="assets/images/cover.jpg" alt="">
+  <div class="title-overlay"></div>
   <div class="title-content">
+    <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div class="title-tip">点击场景中的角色和发光点交互 · 点击箭头切换场景</div>
+    <div class="title-tip">点击场景中的角色和发光点交互<br>点击箭头切换场景</div>
+    <div class="title-tags">
+      <span class="title-tag">解谜</span>
+      <span class="title-tag">寻物</span>
+      <span class="title-tag">昼夜交替</span>
+      <span class="title-tag">隐藏结局</span>
+    </div>
   </div>
 </div>
+
+<!-- Ending Screen (outside uiLayer for full-viewport coverage) -->
+<div id="endingScreen">
+  <div class="ending-title">任务完成！</div>
+  <div class="ending-text" id="endingText"></div>
+  <button class="title-btn touch-btn" id="restartBtn" style="pointer-events:auto;">再玩一次</button>
+</div>
+
+<div id="uiLayer">
 
 <!-- HUD -->
 <div id="hud" style="display:none;">
@@ -198,13 +232,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:
 <!-- Transition -->
 <div id="transition"><div class="transition-text" id="transitionText"></div></div>
 
-<!-- Ending -->
-<div id="endingScreen">
-  <div class="ending-title">任务完成！</div>
-  <div class="ending-text" id="endingText"></div>
-  <button class="title-btn touch-btn" id="restartBtn" style="pointer-events:auto;">再玩一次</button>
-</div>
-
 <!-- Touch controls (hidden - point-and-click mode) -->
 <div id="touchControls" style="display:none;">
   <div class="joystick-base" id="joystickBase">
@@ -251,13 +278,18 @@ canvas.height = CH;
 
 // ---- Resize ----
 function resizeCanvas(){
-  const wrapper = document.getElementById('gameWrapper');
   const ww = window.innerWidth, wh = window.innerHeight;
   const scale = Math.min(ww / CW, wh / CH);
-  canvas.style.width = (CW * scale) + 'px';
-  canvas.style.height = (CH * scale) + 'px';
-  document.getElementById('uiLayer').style.width = (CW * scale) + 'px';
-  document.getElementById('uiLayer').style.height = (CH * scale) + 'px';
+  const cw = CW * scale, ch = CH * scale;
+  canvas.style.width = cw + 'px';
+  canvas.style.height = ch + 'px';
+  // Position UI layer to overlap canvas exactly
+  const ui = document.getElementById('uiLayer');
+  ui.style.width = cw + 'px';
+  ui.style.height = ch + 'px';
+  ui.style.left = ((ww - cw) / 2) + 'px';
+  ui.style.top = ((wh - ch) / 2) + 'px';
+  ui.style.transform = 'scale(' + scale + ')';
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -363,13 +395,24 @@ function loadImages(){
     const img = new Image();
     img.onload = () => {
       imgCache[key] = img;
-      if(key === 'cover' && typeof drawTitleBg === 'function') drawTitleBg();
     };
     img.onerror = () => { console.warn('Failed to load: ' + path); };
     img.src = path;
   }
 }
 loadImages();
+
+// Show title background image with fade-in when loaded
+(function(){
+  var titleImg = document.getElementById('titleBgImg');
+  if(titleImg){
+    if(titleImg.complete && titleImg.naturalWidth > 0){
+      titleImg.classList.add('loaded');
+    } else {
+      titleImg.addEventListener('load', function(){ titleImg.classList.add('loaded'); });
+    }
+  }
+})();
 
 // Draw NPC as a circular billboard portrait from AI image
 function drawNpcBillboard(ctx, imgKey, x, y, size){
@@ -1355,17 +1398,41 @@ function interactBench(){
 function interactStationOwner(){
   if(G.questStage >= 1 && G.questStage < 7){
     if(!isNight()){
-      startDialogue('驿站老板', '📦', [
-        '找狗啊？我白天倒没留意。',
-        '不过说起来奇怪，最近每天晚上十点往后，总有只黑白花的小猫蹲在我这货架顶上。',
-        '绿眼睛，也不怕人，就是不爱搭理谁。你要是晚上没事，可以来看看。',
-      ], null, () => {
-        G.clues.add('station_cat');
-        showToast('线索：夜晚有猫出没');
-        updateQuestLog();
-      });
+      if(!G.clues.has('station_cat')){
+        // First time - subtle hints about mysterious nighttime visitor
+        startDialogue('驿站老板', '📦', [
+          '找狗？白天来来往往人多，我光顾着发货，真没留意过。',
+          '不过……最近店里倒是有件怪事。',
+          '每天我关了店回家，第二天一早来，总发现最高那排货架上有什么东西待过。',
+          '快递盒子好好的，就是上面留了些小爪印，还有几根猫毛。',
+          '也不知道是谁家的小家伙，老爱半夜来我这串门。',
+        ], [
+          {text: '它一般什么时候来？', callback: () => {
+            startDialogue('驿站老板', '📦', [
+              '我一般十点关店，关了以后整条街就静下来了。',
+              '有几次我忘了东西折回来，远远看见货架顶上蹲着个毛茸茸的小影子，两只眼睛绿幽幽的。',
+              '也不叫也不闹，就那么蹲着发呆，像是在等什么人似的。',
+              '你要是好奇，十点以后来转转，说不定能碰上这位"夜猫子"。',
+            ], null, () => {
+              G.clues.add('station_cat');
+              showToast('线索：驿站夜间有神秘访客');
+              updateQuestLog();
+            });
+          }},
+          {text: '先不打扰了', callback: () => {
+            startDialogue('驿站老板', '📦', ['行，慢走啊。对了，我晚上十点关门，你要是有事随时来。']);
+          }},
+        ]);
+      } else {
+        // Already got the clue - remind about timing
+        startDialogue('驿站老板', '📦', [
+          '又来了？我刚才说的那个小家伙，你得等我关了店才能碰上。',
+          '十点以后来，店里没人了，它才敢露面。',
+        ]);
+      }
     } else {
-      startDialogue('驿站老板', '📦', ['那只黑白猫今晚又来了，就在那边货架顶上。你去看看吧。']);
+      // Night time - cat is here
+      startDialogue('驿站老板', '📦', ['哟，你来得正好，那个小家伙今晚又来了，就在那边货架顶上蹲着呢。你去看看吧。']);
     }
   } else {
     startDialogue('驿站老板', '📦', ['欢迎光临快递驿站，有什么事吗？']);
@@ -1376,8 +1443,8 @@ function interactCatSpot(){
   if(!isNight()){
     if(G.questStage >= 1 && G.questStage < 7){
       startDialogue('旁白', '📦', [
-        '货架顶层空空的，但上面有一些猫爪印的痕迹。',
-        '驿站老板说晚上十点后会有只猫来这里……也许该晚上再来看看。',
+        '货架顶层空空的，但上面有一些细小的爪印痕迹和几根猫毛。',
+        '驿站老板说关店后会有个小家伙来……也许该等天黑了再来看看。',
       ]);
     } else {
       startDialogue('旁白', '📦', ['货架顶层，堆着一些快递盒子。']);
@@ -3301,22 +3368,6 @@ function render(){
 // ============================================================
 //  TITLE SCREEN BACKGROUND
 // ============================================================
-function drawTitleBg(){
-  const tc = document.getElementById('titleBgCanvas');
-  const tctx = tc.getContext('2d');
-  const img = imgCache['cover'];
-  if(img && img.complete){
-    tctx.drawImage(img, 0, 0, 800, 600);
-  } else {
-    tctx.fillStyle = '#2a1f3e';
-    tctx.fillRect(0,0,800,600);
-  }
-  // Add dark overlay for text readability
-  tctx.fillStyle = 'rgba(30,20,40,0.5)';
-  tctx.fillRect(0,0,800,600);
-}
-drawTitleBg();
-
 // ============================================================
 //  START
 // ============================================================
