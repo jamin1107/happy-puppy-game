@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
-<title>快乐小狗寻回记</title>
+<title>快乐小狗丢失案</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif;touch-action:none;user-select:none;}
@@ -301,15 +301,24 @@ canvas.width = CW;
 canvas.height = CH;
 
 // ---- Resize ----
+// contain模式：canvas等比缩放居中，完整显示不变形不裁剪
+// UI层填满整个屏幕，黑边区域用来放UI元素
 function resizeCanvas(){
   const ww = window.innerWidth, wh = window.innerHeight;
-  // Fill the entire viewport - stretch to fit (no black bars)
-  canvas.style.width = ww + 'px';
-  canvas.style.height = wh + 'px';
+  const scale = Math.min(ww / CW, wh / CH);
+  const scaledW = Math.round(CW * scale);
+  const scaledH = Math.round(CH * scale);
+  const offsetX = Math.round((ww - scaledW) / 2);
+  const offsetY = Math.round((wh - scaledH) / 2);
+  // canvas内部分辨率固定800x600，CSS等比缩放
+  canvas.width = CW;
+  canvas.height = CH;
+  canvas.style.width = scaledW + 'px';
+  canvas.style.height = scaledH + 'px';
   canvas.style.position = 'fixed';
-  canvas.style.left = '0px';
-  canvas.style.top = '0px';
-  // UI layer fills viewport too, using non-uniform scale
+  canvas.style.left = offsetX + 'px';
+  canvas.style.top = offsetY + 'px';
+  // UI层填满整个屏幕（不受canvas缩放限制）
   const ui = document.getElementById('uiLayer');
   ui.style.width = ww + 'px';
   ui.style.height = wh + 'px';
@@ -320,6 +329,17 @@ function resizeCanvas(){
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', function(){ setTimeout(resizeCanvas, 100); });
 resizeCanvas();
+
+// 屏幕坐标转800x600游戏坐标（基于canvas的实际CSS位置）
+function screenToGame(clientX, clientY){
+  var rect = canvas.getBoundingClientRect();
+  var scaleX = rect.width / CW;
+  var scaleY = rect.height / CH;
+  return {
+    x: (clientX - rect.left) / scaleX,
+    y: (clientY - rect.top) / scaleY
+  };
+}
 
 // ============================================================
 //  GAME STATE
@@ -418,23 +438,24 @@ const imagePaths = {
   cashier: 'assets/images/cashier.jpg',
 };
 function loadImages(){
-  let loaded = 0;
-  const total = Object.keys(imagePaths).length;
   for(const [key, path] of Object.entries(imagePaths)){
     const img = new Image();
     img.onload = () => {
       imgCache[key] = img;
-      loaded++;
-      updateLoadingProgress(loaded, total);
+      imagesLoadedCount++;
+      updateLoadingProgress(imagesLoadedCount, imagesTotalCount);
     };
     img.onerror = () => {
       console.warn('Failed to load: ' + path);
-      loaded++;
-      updateLoadingProgress(loaded, total);
+      imagesLoadedCount++;
+      updateLoadingProgress(imagesLoadedCount, imagesTotalCount);
     };
     img.src = path;
   }
 }
+
+var imagesLoadedCount = 0;
+var imagesTotalCount = Object.keys(imagePaths).length;
 
 function updateLoadingProgress(loaded, total){
   var bar = document.getElementById('loadingBar');
@@ -571,27 +592,19 @@ function isPopupOpen(){
 // Canvas click for minigames and scene interactions
 canvas.addEventListener('click', function(e){
   if(isPopupOpen()) return;
-  var rect = canvas.getBoundingClientRect();
-  var scaleX = rect.width / CW;
-  var scaleY = rect.height / CH;
-  var x = (e.clientX - rect.left) / scaleX;
-  var y = (e.clientY - rect.top) / scaleY;
-  if(G.state === 'playing'){ handleSceneClick(x, y); return; }
+  var pt = screenToGame(e.clientX, e.clientY);
+  if(G.state === 'playing'){ handleSceneClick(pt.x, pt.y); return; }
   if(G.state !== 'minigame') return;
-  miniGameCanvasClick(x, y);
+  miniGameCanvasClick(pt.x, pt.y);
 });
 canvas.addEventListener('touchend', function(e){
   if(isPopupOpen()) return;
   if(G.state !== 'playing' && G.state !== 'minigame') return;
   e.preventDefault();
   var touch = e.changedTouches[0];
-  var rect = canvas.getBoundingClientRect();
-  var scaleX = rect.width / CW;
-  var scaleY = rect.height / CH;
-  var x = (touch.clientX - rect.left) / scaleX;
-  var y = (touch.clientY - rect.top) / scaleY;
-  if(G.state === 'playing'){ handleSceneClick(x, y); return; }
-  miniGameCanvasClick(x, y);
+  var pt = screenToGame(touch.clientX, touch.clientY);
+  if(G.state === 'playing'){ handleSceneClick(pt.x, pt.y); return; }
+  miniGameCanvasClick(pt.x, pt.y);
 });
 
 // Touch joystick
@@ -3256,6 +3269,26 @@ function transitionToScene(sceneName){
 }
 
 function startGame(){
+  // 等待所有图片加载完成才能进入游戏
+  if(imagesLoadedCount < imagesTotalCount){
+    var startBtn = document.getElementById('startBtn');
+    var originalText = startBtn.textContent;
+    startBtn.textContent = '加载中...';
+    startBtn.style.opacity = '0.6';
+    var waitTimer = setInterval(function(){
+      if(imagesLoadedCount >= imagesTotalCount){
+        clearInterval(waitTimer);
+        startBtn.textContent = originalText;
+        startBtn.style.opacity = '1';
+        actuallyStartGame();
+      }
+    }, 200);
+    return;
+  }
+  actuallyStartGame();
+}
+
+function actuallyStartGame(){
   document.getElementById('titleScreen').classList.add('hide');
   document.getElementById('hud').style.display = 'flex';
   document.getElementById('timeSkipBar').style.display = 'flex';
@@ -3373,7 +3406,7 @@ function checkCollision(x, y){
 // ============================================================
 function render(){
   ctx.clearRect(0, 0, CW, CH);
-  // Draw AI background (obstacles no longer drawn inside drawSceneBg)
+  // 以下所有绘制基于800x600坐标系（canvas内部分辨率固定800x600）
   drawSceneBg(ctx, G.scene);
 
   const sc = scenes[G.scene];
