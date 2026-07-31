@@ -3,15 +3,17 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
 <title>快乐小狗寻回记</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif;touch-action:none;user-select:none;}
 #gameWrapper{position:fixed;inset:0;background:#0d0d1a;}
-#gameCanvas{display:block;box-shadow:none;border-radius:0;}
-#uiLayer{position:fixed;inset:0;pointer-events:none;transform-origin:top left;}
+#gameCanvas{display:block;box-shadow:none;border-radius:0;position:fixed;z-index:1;touch-action:none;}
+#uiLayer{position:fixed;inset:0;pointer-events:none;transform-origin:top left;z-index:5;}
 .touch-btn{pointer-events:auto;}
+/* 弹窗遮罩 - 防止穿透到canvas */
+#dialogueBox.show,#questLog.show,#restPrompt.show{touch-action:manipulation;}
 
 /* HUD */
 #hud{position:absolute;top:0;left:0;right:0;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;z-index:10;}
@@ -26,21 +28,21 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 @keyframes bounce{from{transform:translateX(-50%) translateY(0);}to{transform:translateX(-50%) translateY(-4px);}}
 
 /* Dialogue box */
-#dialogueBox{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,rgba(253,246,238,0.97),rgba(255,255,255,0.97));border-top:3px solid #d97757;padding:20px 24px 24px;display:none;z-index:20;box-shadow:0 -8px 32px rgba(0,0,0,0.2);}
+#dialogueBox{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,rgba(253,246,238,0.98),rgba(255,255,255,0.98));border-top:3px solid #d97757;padding:20px 24px calc(24px + env(safe-area-inset-bottom, 0px));display:none;z-index:20;box-shadow:0 -8px 32px rgba(0,0,0,0.2);pointer-events:auto;cursor:pointer;touch-action:manipulation;max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 #dialogueBox.show{display:block;}
 .dlg-name{font-size:16px;font-weight:700;color:#d97757;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
-.dlg-name .avatar{width:32px;height:32px;border-radius:50%;background:#e8916f;display:flex;align-items:center;justify-content:center;font-size:18px;}
-.dlg-text{font-size:15px;color:#3d2914;line-height:1.8;min-height:60px;}
+.dlg-name .avatar{width:32px;height:32px;border-radius:50%;background:#e8916f;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.dlg-text{font-size:15px;color:#3d2914;line-height:1.8;min-height:40px;}
 .dlg-choices{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
-.dlg-choice{background:rgba(217,119,87,0.1);border:1.5px solid rgba(217,119,87,0.3);border-radius:10px;padding:10px 16px;font-size:14px;color:#3d2914;cursor:pointer;pointer-events:auto;transition:all 0.15s;font-family:inherit;}
-.dlg-choice:hover,.dlg-choice.selected{background:rgba(217,119,87,0.2);border-color:#d97757;}
-.dlg-next{position:absolute;bottom:12px;right:20px;font-size:12px;color:#8b7355;animation:blink 1s ease infinite;}
+.dlg-choice{background:rgba(217,119,87,0.1);border:1.5px solid rgba(217,119,87,0.3);border-radius:10px;padding:12px 16px;font-size:14px;color:#3d2914;cursor:pointer;pointer-events:auto;transition:all 0.15s;font-family:inherit;touch-action:manipulation;}
+.dlg-choice:hover,.dlg-choice.selected,.dlg-choice:active{background:rgba(217,119,87,0.2);border-color:#d97757;}
+.dlg-next{position:absolute;bottom:12px;right:20px;font-size:12px;color:#8b7355;animation:blink 1s ease infinite;pointer-events:none;}
 @keyframes blink{50%{opacity:0.3;}}
 
 /* Quest log */
-#questLog{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(20,15,10,0.85);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:30;}
+#questLog{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(20,15,10,0.85);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:30;pointer-events:auto;touch-action:manipulation;}
 #questLog.show{display:flex;}
-.quest-panel{background:rgba(253,246,238,0.97);border-radius:20px;padding:28px 32px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto;}
+.quest-panel{background:rgba(253,246,238,0.98);border-radius:20px;padding:28px 32px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;}
 .quest-title{font-size:22px;font-weight:700;color:#3d2914;margin-bottom:6px;}
 .quest-subtitle{font-size:13px;color:#8b7355;margin-bottom:20px;}
 .quest-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #ede0d0;align-items:flex-start;}
@@ -89,13 +91,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 .btn-group{display:flex;gap:12px;align-items:flex-end;}
 
 /* Time rest prompt */
-#restPrompt{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,15,10,0.9);backdrop-filter:blur(10px);border-radius:16px;padding:24px 32px;z-index:25;display:none;text-align:center;}
-#restPrompt.show{display:block;}
+#restPrompt{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(20,15,10,0.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:25;pointer-events:auto;touch-action:manipulation;}
+#restPrompt.show{display:flex;}
+.rest-panel{background:rgba(20,15,10,0.92);backdrop-filter:blur(10px);border-radius:16px;padding:24px 32px;text-align:center;max-width:90vw;}
 .rest-title{font-size:18px;font-weight:700;color:#ffd966;margin-bottom:16px;}
-.rest-btns{display:flex;gap:12px;justify-content:center;}
-.rest-btn{background:rgba(217,119,87,0.3);border:1.5px solid rgba(217,119,87,0.5);border-radius:10px;padding:10px 20px;color:#fff;font-size:14px;cursor:pointer;pointer-events:auto;font-family:inherit;transition:all 0.15s;}
-.rest-btn:hover{background:rgba(217,119,87,0.5);}
+.rest-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.rest-btn{background:rgba(217,119,87,0.3);border:1.5px solid rgba(217,119,87,0.5);border-radius:10px;padding:12px 20px;color:#fff;font-size:14px;cursor:pointer;pointer-events:auto;font-family:inherit;transition:all 0.15s;touch-action:manipulation;}
+.rest-btn:hover,.rest-btn:active{background:rgba(217,119,87,0.5);}
 .rest-btn.cancel{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);}
+.rest-btn.cancel:active{background:rgba(255,255,255,0.2);}
 
 /* Scene transition */
 #transition{position:absolute;inset:0;background:#1a1a2e;z-index:50;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s;}
@@ -115,14 +119,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 .hud-badge .icon{font-size:14px;}
 .hud-time{font-size:13px;padding:5px 10px;}
 .dlg-name{font-size:14px;}
+.dlg-name .avatar{width:28px;height:28px;font-size:16px;}
 .dlg-text{font-size:13px;line-height:1.7;}
-.dlg-choice{font-size:13px;padding:9px 14px;}
-.skip-btn{padding:3px 8px;font-size:11px;}
+.dlg-choice{font-size:13px;padding:10px 14px;}
+.skip-btn{padding:5px 10px;font-size:11px;}
 .inv-item{font-size:11px;padding:3px 8px;}
-#dialogueBox{padding:16px 18px 20px;}
+#dialogueBox{padding:14px 16px calc(18px + env(safe-area-inset-bottom, 0px));max-height:45vh;}
 .quest-panel{padding:20px 22px;}
 .quest-title{font-size:18px;}
 .quest-text{font-size:13px;}
+#restPrompt .rest-panel{padding:20px 24px;}
+.rest-btn{padding:10px 18px;font-size:13px;}
+#timeSkipBar{top:44px;right:12px;gap:4px;}
+#inventoryBar{top:72px;left:12px;}
+}
+@media(max-width:380px){
+.hud-badge{font-size:10px;padding:4px 7px;}
+.hud-time{font-size:11px;padding:4px 8px;}
+.dlg-text{font-size:12px;}
+.dlg-choice{font-size:12px;padding:9px 12px;}
+.skip-btn{padding:4px 8px;font-size:10px;}
 }
 
 /* Time skip buttons */
@@ -224,11 +240,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Rest prompt -->
 <div id="restPrompt">
-  <div class="rest-title">⏰ 在此处休息</div>
-  <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:16px;">休息可以快进时间</div>
-  <div class="rest-btns">
-    <button class="rest-btn touch-btn" id="restToNightBtn" style="pointer-events:auto;">等到夜晚 (22:00)</button>
-    <button class="rest-btn cancel touch-btn" id="restCancelBtn" style="pointer-events:auto;">取消</button>
+  <div class="rest-panel">
+    <div class="rest-title">⏰ 在此处休息</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:16px;">休息可以快进时间</div>
+    <div class="rest-btns">
+      <button class="rest-btn touch-btn" id="restToNightBtn" style="pointer-events:auto;">等到夜晚 (22:00)</button>
+      <button class="rest-btn cancel touch-btn" id="restCancelBtn" style="pointer-events:auto;">取消</button>
+    </div>
   </div>
 </div>
 
@@ -542,8 +560,17 @@ function handleSceneClick(x, y){
   }
 }
 
+// 检查是否有弹窗正在显示（阻止canvas误触）
+function isPopupOpen(){
+  return document.getElementById('dialogueBox').classList.contains('show')
+      || document.getElementById('questLog').classList.contains('show')
+      || document.getElementById('restPrompt').classList.contains('show')
+      || document.getElementById('transition').classList.contains('show');
+}
+
 // Canvas click for minigames and scene interactions
 canvas.addEventListener('click', function(e){
+  if(isPopupOpen()) return;
   var rect = canvas.getBoundingClientRect();
   var scaleX = rect.width / CW;
   var scaleY = rect.height / CH;
@@ -554,6 +581,7 @@ canvas.addEventListener('click', function(e){
   miniGameCanvasClick(x, y);
 });
 canvas.addEventListener('touchend', function(e){
+  if(isPopupOpen()) return;
   if(G.state !== 'playing' && G.state !== 'minigame') return;
   e.preventDefault();
   var touch = e.changedTouches[0];
@@ -604,27 +632,78 @@ window.addEventListener('mousemove', handleJoyMove);
 window.addEventListener('mouseup', handleJoyEnd);
 
 document.getElementById('interactBtn').addEventListener('click', tryInteract);
-document.getElementById('questBtn').addEventListener('click', () => {
+
+// 统一tap事件 - 同时支持touchend和click，防止手机端300ms延迟和重复触发
+// handler返回false表示不阻止默认行为（让子元素的click事件正常触发）
+function addTapListener(el, handler){
+  var touched = false;
+  el.addEventListener('touchend', function(e){
+    touched = true;
+    var result = handler.call(el, e);
+    if(result !== false){
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setTimeout(function(){ touched = false; }, 400);
+  }, {passive: false});
+  el.addEventListener('click', function(e){
+    if(touched) return;
+    handler.call(el, e);
+  });
+}
+
+// 给动态创建的按钮绑定tap事件（用于对话框内的选择按钮）
+function bindChoiceTap(btn, handler){
+  var touched = false;
+  btn.addEventListener('touchend', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    touched = true;
+    handler();
+    setTimeout(function(){ touched = false; }, 400);
+  }, {passive: false});
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(touched) return;
+    handler();
+  });
+}
+
+addTapListener(document.getElementById('questBtn'), function(){
   if(G.state === 'playing') openQuestLog();
 });
-document.getElementById('closeQuestBtn').addEventListener('click', closeQuestLog);
-document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('restartBtn').addEventListener('click', () => location.reload());
-document.getElementById('restToNightBtn').addEventListener('click', () => { restToNight(); });
-document.getElementById('restCancelBtn').addEventListener('click', () => { document.getElementById('restPrompt').classList.remove('show'); });
+addTapListener(document.getElementById('closeQuestBtn'), closeQuestLog);
+addTapListener(document.getElementById('startBtn'), startGame);
+addTapListener(document.getElementById('restartBtn'), function(){ location.reload(); });
+addTapListener(document.getElementById('restToNightBtn'), function(){ restToNight(); });
+addTapListener(document.getElementById('restCancelBtn'), function(){
+  document.getElementById('restPrompt').classList.remove('show');
+});
+
+// 点击遮罩层关闭弹窗（questLog和restPrompt）
+addTapListener(document.getElementById('questLog'), function(e){
+  if(e.target === document.getElementById('questLog')){
+    closeQuestLog();
+  }
+});
+addTapListener(document.getElementById('restPrompt'), function(e){
+  if(e.target === document.getElementById('restPrompt')){
+    document.getElementById('restPrompt').classList.remove('show');
+  }
+});
 
 // Time skip buttons
-document.querySelectorAll('.skip-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
+document.querySelectorAll('.skip-btn').forEach(function(btn){
+  addTapListener(btn, function(){
     if(G.state !== 'playing') return;
     var h = parseInt(btn.getAttribute('data-hours'));
     skipHours(h);
   });
 });
 
-// Dialogue click to advance
-document.getElementById('dialogueBox').addEventListener('click', (e) => {
-  if(e.target.classList.contains('dlg-choice')) return;
+// Dialogue tap to advance (支持手机端touchend + PC端click)
+addTapListener(document.getElementById('dialogueBox'), function(e){
+  if(e.target && e.target.classList && e.target.classList.contains('dlg-choice')) return false;
   advanceDialogue();
 });
 
@@ -1261,11 +1340,10 @@ function renderDialogue(){
       btn.className = 'dlg-choice touch-btn';
       btn.textContent = ch.text;
       btn.style.pointerEvents = 'auto';
-      btn.onclick = (e) => {
-        e.stopPropagation();
+      bindChoiceTap(btn, function(){
         endDialogue();
         if(ch.callback) ch.callback();
-      };
+      });
       choicesDiv.appendChild(btn);
     });
     document.getElementById('dlgNext').style.display = 'none';
@@ -1769,8 +1847,7 @@ function renderPuzzleChoices(){
     } else {
       btn.textContent = label;
       btn.style.pointerEvents = 'auto';
-      btn.onclick = (e) => {
-        e.stopPropagation();
+      bindChoiceTap(btn, function(){
         if(i === PUZZLE_ORDER[puzzleState.step]){
           puzzleState.boxes[i] = false;
           puzzleState.step++;
@@ -1842,7 +1919,7 @@ function renderPuzzleChoices(){
         } else {
           showToast('顺序不对，试试别的');
         }
-      };
+      });
     }
     choicesDiv.appendChild(btn);
   });
@@ -2317,10 +2394,9 @@ function tryPushShell(){
     btn.className = 'dlg-choice touch-btn';
     btn.textContent = dirLabels[key];
     btn.style.pointerEvents = 'auto';
-    btn.onclick = function(e){
-      e.stopPropagation();
+    bindChoiceTap(btn, function(){
       doShellPush(r, c, d[0], d[1]);
-    };
+    });
     choicesDiv.appendChild(btn);
   });
   // Cancel button
@@ -2328,11 +2404,10 @@ function tryPushShell(){
   cancelBtn.className = 'dlg-choice touch-btn';
   cancelBtn.textContent = '取消';
   cancelBtn.style.pointerEvents = 'auto';
-  cancelBtn.onclick = function(e){
-    e.stopPropagation();
+  bindChoiceTap(cancelBtn, function(){
     endDialogue();
     G.state = 'minigame';
-  };
+  });
   choicesDiv.appendChild(cancelBtn);
 }
 
