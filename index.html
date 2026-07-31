@@ -315,14 +315,18 @@ function resizeCanvas(){
   const scaledH = Math.round(CH * scale);
   const offsetX = Math.round((ww - scaledW) / 2);
   const offsetY = Math.round((wh - scaledH) / 2);
-  // canvas内部分辨率固定800x600，CSS等比缩放
-  canvas.width = CW;
-  canvas.height = CH;
+  // 使用devicePixelRatio提升canvas内部分辨率，消除手机端模糊
+  var dpr = window.devicePixelRatio || 1;
+  if(dpr > 3) dpr = 3; // 限制最大3倍，避免内存过大
+  canvas.width = Math.round(CW * dpr);
+  canvas.height = Math.round(CH * dpr);
   canvas.style.width = scaledW + 'px';
   canvas.style.height = scaledH + 'px';
   canvas.style.position = 'fixed';
   canvas.style.left = offsetX + 'px';
   canvas.style.top = offsetY + 'px';
+  // 重置transform并按dpr缩放，使绘制坐标仍为800x600
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   // UI层填满整个屏幕（不受canvas缩放限制）
   const ui = document.getElementById('uiLayer');
   ui.style.width = ww + 'px';
@@ -571,13 +575,13 @@ function handleSceneClick(x, y){
   for(const ex of sc.exits){
     if(x > ex.x && x < ex.x + ex.w && y > ex.y && y < ex.y + ex.h){
       if(ex.locked && !isExitUnlocked(ex)){
-        if(ex.to === 'parking_b1') showToast('门卫大爷挡着路，需要给他买烟');
-        else if(ex.to === 'beach') showToast('需要先找到车才能去荻花洲');
+        if(ex.to === 'parking_b1') showToast('这条路暂时过不去');
+        else if(ex.to === 'beach') showToast('这条路暂时过不去');
         else showToast('这条路还通不了');
         return;
       }
       if(ex.to === 'parking_b2' && G.questStage < 5 && !G.flags.b2Unlocked){
-        showToast('还需要更多线索才能继续往下');
+        showToast('好像还不到时候');
         return;
       }
       transitionToScene(ex.to);
@@ -1941,7 +1945,6 @@ function interactSmokeShelf(){
   }
   startDialogue('旁白', '🚬', [
     '货架上摆着各种品牌的烟。',
-    '你想买哪种？门卫大爷好像喜欢抽"红梅"……',
   ], [
     {text: '买一包红梅烟（20元）', callback: () => {
       G.inventory.cigarettes = true;
@@ -1993,70 +1996,42 @@ function interactPetFoodShelf(){
 function interactGatekeeper(){
   if(!G.flags.gatekeeperTalked){
     G.flags.gatekeeperTalked = true;
-    // First meeting - no cigarettes, no 荻花洲 mention
+    // First meeting - refuses entry, no hints about cigarettes
     startDialogue('门卫大爷', '👴', [
       '嘿，你干啥的？这边是幼儿园，闲人免进。',
       '地下车库？那更是不行，里面停的都是老师和住户的车，不能随便让人下去。',
       '……什么？你说你是来找狗的？',
       '嗯……我倒是今早看见一只大狗从操场那边跑过去了。但车库真不能让你进，这是规矩。',
-      '除非……嘿嘿，你也知道，我这值夜班辛苦，就馋口烟。你要是能弄包烟来孝敬孝敬，咱也不是不能通融通融。',
-    ], null, () => {
-      showToast('需要从超市买烟给门卫大爷');
-    });
+    ]);
   } else if(!G.flags.garageUnlocked){
     if(G.inventory.cigarettes){
-      // Has cigarettes - show 荻花洲 content and buttons
+      // Player figured out to buy cigarettes on their own
       startDialogue('门卫大爷', '👴', [
-        '哟，你弄来烟了？行行行，我看看。',
-        '对了，既然你有烟了，我跟你说个事。',
+        '哟，你这……嘿嘿，你是个懂规矩的人。',
+        '行吧，既然你这么有心，咱也不是不能通融通融。',
+        '我跟你说，今早那只大狗确实从操场跑下去了，钻进车库了。',
         '车库东边那辆车，钥匙还插着呢，之前有人开着它去过海边——荻花洲，就在东边不远。',
-        '听说那边沙滩上最近有不少动物出没的痕迹，你要是找到狗了，说不定可以去那边看看。',
-        '你先把烟给我，我让你下去，车你自己开着去。',
       ], [
-        {text: '给大爷递上红梅烟，下车库', callback: () => {
+        {text: '递上红梅烟，下车库', callback: () => {
           G.inventory.cigarettes = false;
           updateInventory();
           G.flags.garageUnlocked = true;
           G.flags.beachMentioned = true;
           startDialogue('门卫大爷', '👴', [
             '哎呦，红梅！好烟好烟！行了行了，你下去吧。',
-            '我跟你说，今早那只大狗确实从操场跑下去了，钻进车库了。',
             '车库东边那辆车能开，想去荻花洲就走东门通道。',
             '【地下车库已解锁 · 荻花洲线索已开启】',
           ], null, () => {
             showToast('地下车库已解锁！');
-            showToast('新线索：荻花洲海边');
           });
         }},
-        {text: '先不给，再问问荻花洲的事', callback: () => {
-          G.flags.beachMentioned = true;
-          startDialogue('门卫大爷', '👴', [
-            '荻花洲啊，就在东边海边，开车十分钟就到。',
-            '那边有沙滩、礁石、芦苇丛，风景不错。',
-            '最近听人说那边来了只很大的动物，整天趴在沙滩上不动，怪得很。',
-            '你要是有兴趣，把烟给我，下去开车就能去。',
-          ], [
-            {text: '给大爷递上红梅烟', callback: () => {
-              G.inventory.cigarettes = false;
-              updateInventory();
-              G.flags.garageUnlocked = true;
-              startDialogue('门卫大爷', '👴', [
-                '好烟好烟！行了，下去吧。',
-                '那辆车钥匙在点火器上，自己去荻花洲看看吧。',
-                '【地下车库已解锁】',
-              ], null, () => {
-                showToast('地下车库已解锁！');
-              });
-            }},
-            {text: '先不下去了', callback: () => {}},
-          ]);
-        }},
+        {text: '先不给', callback: () => {}},
       ]);
     } else {
-      // No cigarettes - no 荻花洲 content or buttons
+      // No cigarettes - just refuses, no hints
       startDialogue('门卫大爷', '👴', [
-        '回来了？烟呢？没烟可别想下去。',
-        '小区旁边有个沃尔玛，去那买包红梅来，我就让你过。',
+        '又来了？说了不行就是不行。',
+        '规矩就是规矩，不是我说了算的。',
       ]);
     }
   } else {
@@ -3126,19 +3101,19 @@ function skipHours(h){
 //  QUEST LOG
 // ============================================================
 const questSteps = [
-  {id:'accept', text:'在茶叶店接受老陈的委托', hint:'前往天成花园小区旁的茶叶店'},
-  {id:'pawprints', text:'在小区寻找快乐小狗的踪迹', hint:'调查小区地上的爪印'},
-  {id:'wang', text:'询问小区居民是否目击快乐小狗', hint:'和王阿姨聊聊'},
-  {id:'kindergarten', text:'前往幼儿园调查', hint:'快乐小狗追蝴蝶去了幼儿园'},
-  {id:'supermarket', text:'去超市买烟贿赂门卫大爷', hint:'小区西侧沃尔玛，买包红梅烟', optional:false},
-  {id:'gatekeeper', text:'给门卫大爷送烟解锁车库', hint:'回幼儿园找门卫大爷，把烟给他'},
-  {id:'parking', text:'进入地下车库追踪快乐小狗', hint:'从幼儿园东门进入地下车库B1'},
-  {id:'beach', text:'（支线）开车去荻花洲寻找线索', hint:'B1层找到车，开车去海边查看爪印', optional:true},
-  {id:'capybara', text:'（支线）完成卡皮巴拉的三道试炼', hint:'在荻花洲找卡皮巴拉，完成贝壳/礁石/芦苇谜题', optional:true},
-  {id:'b2', text:'在B2层修复电路并寻找快乐小狗去向', hint:'下到B2层，旋转管道连通电路，调查应急出口'},
-  {id:'cat', text:'夜晚去快递驿站找犹豫小猫', hint:'22:00后在快递驿站寻找犹豫小猫，可用时间跳过'},
-  {id:'mall', text:'前往SM商场东侧仓库救出快乐小狗', hint:'从B2应急通道进入SM商场，推箱子救出快乐小狗'},
-  {id:'return', text:'将快乐小狗送回茶叶店', hint:'回到陈记茶叶店找老陈（有海螺可吹响触发隐藏结局）'},
+  {id:'accept', text:'在天成花园小区寻找线索', hint:''},
+  {id:'pawprints', text:'调查小区中的踪迹', hint:''},
+  {id:'wang', text:'询问小区居民', hint:''},
+  {id:'kindergarten', text:'前往幼儿园调查', hint:''},
+  {id:'supermarket', text:'想办法进入地下车库', hint:''},
+  {id:'gatekeeper', text:'想办法进入地下车库', hint:''},
+  {id:'parking', text:'进入地下车库追踪快乐小狗', hint:''},
+  {id:'beach', text:'（支线）探索周边区域', hint:'', optional:true},
+  {id:'capybara', text:'（支线）完成神秘试炼', hint:'', optional:true},
+  {id:'b2', text:'在B2层寻找快乐小狗的去向', hint:''},
+  {id:'cat', text:'夜晚在快递驿站寻找犹豫小猫', hint:''},
+  {id:'mall', text:'前往SM商场救出快乐小狗', hint:''},
+  {id:'return', text:'将快乐小狗送回茶叶店', hint:''},
 ];
 
 function updateQuestLog(){
@@ -3155,10 +3130,6 @@ function openQuestLog(){
     const isOptional = step.optional;
     const div = document.createElement('div');
     div.className = 'quest-item';
-    let hintText = '';
-    if(!done && current){
-      hintText = '<div class="quest-hint">→ ' + step.hint + '</div>';
-    }
     var checkIcon = done ? '✓' : (i+1);
     var textStyle = done ? 'done' : '';
     var checkStyle = done ? 'done' : '';
@@ -3171,7 +3142,6 @@ function openQuestLog(){
       <div class="quest-check ${checkStyle}">${checkIcon}</div>
       <div>
         <div class="quest-text ${textStyle}">${step.text}</div>
-        ${hintText}
       </div>
     `;
     container.appendChild(div);
@@ -3229,7 +3199,7 @@ function restToNight(){
   setTimeout(() => {
     G.time = 22.0;
     document.getElementById('transition').classList.remove('show');
-    if(isNight()) showToast('夜幕降临，犹豫小猫应该出现在快递驿站了');
+    // Removed obvious hint about cat appearing at night
   }, 1200);
 }
 
@@ -3280,10 +3250,8 @@ function actuallyStartGame(){
   G.state = 'playing';
   G.scene = 'community';
   document.getElementById('locationName').textContent = scenes.community.name;
-  // Initial guidance
-  setTimeout(() => {
-    showToast('前往茶叶店接受老陈的委托');
-  }, 800);
+  // Initial guidance - removed obvious hint
+  G.state = 'playing';
 }
 
 function showEnding(goodEnding){
