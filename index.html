@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.4.0" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.4.1" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.4.0-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.4.1-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.4.0-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.4.1-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -500,7 +500,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.4.0';
+var IMG_VER = 'v2.4.1';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -834,7 +834,7 @@ const scenes = {
       {x:300,y:80,w:200,h:50, type:'fountain'},
     ],
     npcs: [
-      {id:'wang', x:130, y:480, w:32, h:40, name:'王阿姨', draw:drawWangAyi, interact: interactWang},
+      {id:'wang', x:280, y:480, w:32, h:40, name:'王阿姨', draw:drawWangAyi, interact: interactWang},
     ],
     objects: [
       {id:'pawprints', x:480, y:350, w:50, h:50, interact: interactPawprints},
@@ -860,7 +860,7 @@ const scenes = {
       {x:500,y:50,w:200,h:70, type:'counter'},
     ],
     npcs: [
-      {id:'chen', x:600, y:200, w:32, h:44, name:'老陈', draw:drawOldChen, interact: interactChen},
+      {id:'chen', x:550, y:180, w:32, h:44, name:'老陈', draw:drawOldChen, interact: interactChen},
     ],
     objects: [
       {id:'dogbed', x:350, y:180, w:50, h:40, interact: interactDogbed},
@@ -889,7 +889,7 @@ const scenes = {
     npcs: [],
     objects: [
       {id:'cat_spot', x:600, y:120, w:50, h:50, interact: interactCatSpot},
-      {id:'station_owner', x:200, y:300, w:32, h:40, name:'驿站老板', draw:drawStationOwner, interact: interactStationOwner, isNpcLike:true},
+      {id:'station_owner', x:300, y:350, w:32, h:40, name:'驿站老板', draw:drawStationOwner, interact: interactStationOwner, isNpcLike:true},
     ],
     exits: [
       {x:0,y:280,w:50,h:60,to:'community',label:'← 回小区'},
@@ -910,7 +910,7 @@ const scenes = {
     ],
     npcs: [
       {id:'teacher', x:400, y:250, w:32, h:40, name:'幼儿园老师', draw:drawTeacher, interact: interactTeacher},
-      {id:'gatekeeper', x:620, y:300, w:32, h:40, name:'门卫大爷', draw:drawGatekeeper, interact: interactGatekeeper},
+      {id:'gatekeeper', x:560, y:350, w:32, h:40, name:'门卫大爷', draw:drawGatekeeper, interact: interactGatekeeper},
     ],
     objects: [
       {id:'kg_clue', x:500, y:400, w:50, h:50, interact: interactKgClue},
@@ -991,7 +991,7 @@ const scenes = {
       {x:640,y:460,w:100,h:60, type:'shop'},
     ],
     npcs: [
-      {id:'guard', x:200, y:300, w:32, h:40, name:'商场保安', draw:drawGuard, interact: interactGuard},
+      {id:'guard', x:380, y:250, w:32, h:40, name:'商场保安', draw:drawGuard, interact: interactGuard},
     ],
     objects: [
       {id:'puppy_spot', x:560, y:300, w:60, h:60, interact: interactPuppySpot},
@@ -1018,7 +1018,7 @@ const scenes = {
       {x:460,y:440,w:120,h:60, type:'shelf'},
     ],
     npcs: [
-      {id:'cashier', x:650, y:300, w:32, h:40, name:'收银员', draw:drawCashier, interact: interactCashier},
+      {id:'cashier', x:450, y:350, w:32, h:40, name:'收银员', draw:drawCashier, interact: interactCashier},
     ],
     objects: [
       {id:'smoke_shelf', x:100, y:440, w:60, h:40, interact: interactSmokeShelf},
