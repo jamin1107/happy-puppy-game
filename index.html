@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.2.0" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.3.0" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.2.0-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.3.0-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.2.0-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.3.0-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -333,13 +333,14 @@ function resizeCanvas(){
   var isPortrait = wh > ww; // 竖屏
   
   if(isPortrait){
-    // 竖屏: 按宽度缩放填满屏幕宽度，高度居中（上下可能有黑边但不裁剪左右）
-    // 这样canvas宽度=屏幕宽度，最大化像素利用率，画面清晰
+    // 竖屏: 按宽度缩放填满屏幕宽度，高度居中偏上（给底部Safari地址栏留空间）
     var scale = ww / CW;
     var scaledW = CW * scale; // = ww
     var scaledH = CH * scale; // 600 * (ww/800) < wh，高度不足有黑边
     var offsetX = 0;
-    var offsetY = (wh - scaledH) / 2;
+    // 往上偏移：底部多留空间给Safari地址栏，顶部少留空间
+    var spareVertical = wh - scaledH;
+    var offsetY = spareVertical > 0 ? spareVertical * 0.3 : 0;
     var cw = Math.round(scaledW * dpr);
     var ch = Math.round(scaledH * dpr);
     if(canvas.width !== cw || canvas.height !== ch){
@@ -498,7 +499,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.2.0';
+var IMG_VER = 'v2.3.0';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -3631,6 +3632,10 @@ function render(){
     ctx.textAlign = 'center';
     var tw = (ctx.measureText(npc.name).width + 16 * dpr);
     var th = pxFont + 10 * dpr;
+    // 边界检测：确保标签不超出canvas范围
+    if(pxX - tw/2 < 2 * dpr) pxX = tw/2 + 2 * dpr;
+    if(pxX + tw/2 > canvas.width - 2 * dpr) pxX = canvas.width - tw/2 - 2 * dpr;
+    if(pxY + th > canvas.height - 2 * dpr) pxY = canvas.height - th - 2 * dpr;
     ctx.fillStyle = 'rgba(30,25,20,0.78)';
     ctx.beginPath(); ctx.roundRect(pxX - tw/2, pxY, tw, th, 5 * dpr); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.96)';
@@ -3654,6 +3659,10 @@ function render(){
         ctx.textAlign = 'center';
         var tw2 = (ctx.measureText(obj.name).width + 16 * dpr);
         var th2 = pxFont2 + 10 * dpr;
+        // 边界检测
+        if(pxX2 - tw2/2 < 2 * dpr) pxX2 = tw2/2 + 2 * dpr;
+        if(pxX2 + tw2/2 > canvas.width - 2 * dpr) pxX2 = canvas.width - tw2/2 - 2 * dpr;
+        if(pxY2 + th2 > canvas.height - 2 * dpr) pxY2 = canvas.height - th2 - 2 * dpr;
         ctx.fillStyle = 'rgba(30,25,20,0.78)';
         ctx.beginPath(); ctx.roundRect(pxX2 - tw2/2, pxY2, tw2, th2, 5 * dpr); ctx.fill();
         ctx.fillStyle = 'rgba(255,255,255,0.96)';
@@ -3681,6 +3690,10 @@ function render(){
         var lt = obj.label;
         var ltw = ctx.measureText(lt).width + 20 * dpr;
         var lth = lpxFont + 12 * dpr;
+        // 边界检测
+        if(lcx - ltw/2 < 2 * dpr) lcx = ltw/2 + 2 * dpr;
+        if(lcx + ltw/2 > canvas.width - 2 * dpr) lcx = canvas.width - ltw/2 - 2 * dpr;
+        if(lcy + lth > canvas.height - 2 * dpr) lcy = canvas.height - lth - 2 * dpr;
         ctx.fillStyle = 'rgba(217,119,87,0.92)';
         ctx.beginPath(); ctx.roundRect(lcx - ltw/2, lcy, ltw, lth, 6 * dpr); ctx.fill();
         ctx.fillStyle = '#fff';
@@ -3704,6 +3717,10 @@ function render(){
     ctx.textAlign = 'center';
     var catTw = ctx.measureText('犹豫小猫').width + 16 * dpr;
     var catTh = catFont + 10 * dpr;
+    // 边界检测
+    if(catPxX - catTw/2 < 2 * dpr) catPxX = catTw/2 + 2 * dpr;
+    if(catPxX + catTw/2 > canvas.width - 2 * dpr) catPxX = canvas.width - catTw/2 - 2 * dpr;
+    if(catPxY + catTh > canvas.height - 2 * dpr) catPxY = canvas.height - catTh - 2 * dpr;
     ctx.fillStyle = 'rgba(30,25,20,0.78)';
     ctx.beginPath(); ctx.roundRect(catPxX - catTw/2, catPxY, catTw, catTh, 5 * dpr); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.96)';
@@ -3731,6 +3748,12 @@ function render(){
     var exLabel = ex.label + (locked ? ' 🔒' : '');
     var exTw = ctx.measureText(exLabel).width + 28 * dpr;
     var exTh = exFont + 18 * dpr;
+    // 边界检测：确保标签完整显示在canvas范围内
+    var halfExW = exTw / 2, halfExH = exTh / 2;
+    if(exPxX - halfExW < 2 * dpr) exPxX = halfExW + 2 * dpr;
+    if(exPxX + halfExW > canvas.width - 2 * dpr) exPxX = canvas.width - halfExW - 2 * dpr;
+    if(exPxY - halfExH < 2 * dpr) exPxY = halfExH + 2 * dpr;
+    if(exPxY + halfExH > canvas.height - 2 * dpr) exPxY = canvas.height - halfExH - 2 * dpr;
     // Shadow
     ctx.shadowColor = 'rgba(0,0,0,0.45)';
     ctx.shadowBlur = 8 * dpr;
