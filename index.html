@@ -738,10 +738,10 @@ const scenes = {
       {id:'bench_rest', x:250, y:200, w:80, h:30, interact: interactBench},
     ],
     exits: [
-      {x:25,y:250,w:30,h:60,to:'teashop',label:'→ 茶叶店'},
-      {x:CW-55,y:250,w:30,h:60,to:'delivery',label:'快递驿站 →'},
+      {x:20,y:250,w:50,h:60,to:'teashop',label:'→ 茶叶店'},
+      {x:CW-70,y:250,w:50,h:60,to:'delivery',label:'快递驿站 →'},
       {x:360,y:CH-30,w:80,h:30,to:'kindergarten',label:'↓ 幼儿园'},
-      {x:25,y:400,w:30,h:60,to:'supermarket',label:'→ 超市'},
+      {x:25,y:400,w:50,h:60,to:'supermarket',label:'→ 超市'},
     ],
     playerStart: {x:400, y:350},
   },
@@ -763,7 +763,7 @@ const scenes = {
       {id:'dogbed', x:350, y:180, w:50, h:40, interact: interactDogbed},
     ],
     exits: [
-      {x:CW-55,y:280,w:30,h:60,to:'community',label:'→ 回小区'},
+      {x:CW-70,y:280,w:50,h:60,to:'community',label:'→ 回小区'},
     ],
     playerStart: {x:100, y:300},
   },
@@ -789,7 +789,7 @@ const scenes = {
       {id:'station_owner', x:200, y:300, w:32, h:40, name:'驿站老板', draw:drawStationOwner, interact: interactStationOwner, isNpcLike:true},
     ],
     exits: [
-      {x:0,y:280,w:30,h:60,to:'community',label:'← 回小区'},
+      {x:0,y:280,w:50,h:60,to:'community',label:'← 回小区'},
     ],
     playerStart: {x:80, y:300},
   },
@@ -807,7 +807,7 @@ const scenes = {
     ],
     npcs: [
       {id:'teacher', x:400, y:250, w:32, h:40, name:'幼儿园老师', draw:drawTeacher, interact: interactTeacher},
-      {id:'gatekeeper', x:700, y:300, w:32, h:40, name:'门卫大爷', draw:drawGatekeeper, interact: interactGatekeeper},
+      {id:'gatekeeper', x:620, y:300, w:32, h:40, name:'门卫大爷', draw:drawGatekeeper, interact: interactGatekeeper},
     ],
     objects: [
       {id:'kg_clue', x:500, y:400, w:50, h:50, interact: interactKgClue},
@@ -815,7 +815,7 @@ const scenes = {
     ],
     exits: [
       {x:360,y:0,w:80,h:30,to:'community',label:'↑ 回小区'},
-      {x:CW-55,y:300,w:30,h:60,to:'parking_b1',label:'→ 地下车库', locked:true},
+      {x:CW-70,y:400,w:50,h:60,to:'parking_b1',label:'→ 地下车库', locked:true},
     ],
     playerStart: {x:400, y:350},
   },
@@ -836,12 +836,12 @@ const scenes = {
     npcs: [],
     objects: [
       {id:'b1_clue', x:250, y:400, w:50, h:50, interact: interactB1Clue},
-      {id:'b1_stairs', x:680, y:300, w:50, h:60, interact: interactB1Stairs},
-      {id:'b1_car', x:400, y:400, w:60, h:60, interact: interactB1Car},
+      {id:'b1_stairs', x:680, y:300, w:50, h:60, label:'↓ B2楼梯', interact: interactB1Stairs},
+      {id:'b1_car', x:400, y:400, w:60, h:60, label:'车', interact: interactB1Car},
     ],
     exits: [
-      {x:0,y:300,w:30,h:60,to:'kindergarten',label:'← 回幼儿园'},
-      {x:CW-55,y:420,w:30,h:60,to:'beach',label:'→ 荻花洲', locked:true},
+      {x:0,y:400,w:50,h:60,to:'kindergarten',label:'← 回幼儿园'},
+      {x:CW-70,y:400,w:50,h:60,to:'beach',label:'→ 荻花洲', locked:true},
     ],
     playerStart: {x:80, y:300},
   },
@@ -864,10 +864,10 @@ const scenes = {
     npcs: [],
     objects: [
       {id:'b2_clue', x:400, y:200, w:50, h:50, interact: interactB2Clue},
-      {id:'b2_exit_door', x:680, y:300, w:50, h:60, interact: interactB2Exit},
+      {id:'b2_exit_door', x:680, y:300, w:50, h:60, label:'应急门', interact: interactB2Exit},
     ],
     exits: [
-      {x:0,y:300,w:30,h:60,to:'parking_b1',label:'← 上楼 B1'},
+      {x:0,y:400,w:50,h:60,to:'parking_b1',label:'← 上楼 B1'},
     ],
     playerStart: {x:80, y:300},
   },
@@ -895,7 +895,7 @@ const scenes = {
       {id:'puzzle_boxes', x:560, y:350, w:60, h:40, interact: interactPuzzle},
     ],
     exits: [
-      {x:0,y:300,w:30,h:60,to:'parking_b2',label:'← 回车库'},
+      {x:0,y:300,w:50,h:60,to:'parking_b2',label:'← 回车库'},
     ],
     playerStart: {x:80, y:300},
   },
@@ -922,7 +922,7 @@ const scenes = {
       {id:'petfood_shelf', x:300, y:440, w:60, h:40, interact: interactPetFoodShelf},
     ],
     exits: [
-      {x:CW-55,y:300,w:30,h:60,to:'community',label:'→ 回小区'},
+      {x:CW-70,y:300,w:50,h:60,to:'community',label:'→ 回小区'},
     ],
     playerStart: {x:80, y:300},
   },
@@ -952,7 +952,7 @@ const scenes = {
       {id:'reed_puzzle', x:100, y:460, w:50, h:50, interact: interactReedPuzzle},
     ],
     exits: [
-      {x:0,y:300,w:30,h:60,to:'parking_b1',label:'← 开车回车库'},
+      {x:0,y:300,w:50,h:60,to:'parking_b1',label:'← 开车回车库'},
     ],
     playerStart: {x:120, y:350},
   },
@@ -2837,27 +2837,29 @@ function startCircuitPuzzle(){
   // Rotate = shift bits left by 1 (within 4 bits)
   G.miniGame = {
     type: 'circuit',
+    // Path: 0→1→5→9→10→11→15 (source right, target top)
+    // conn bits: 1=top, 2=right, 4=bottom, 8=left
     tiles: [
       // row 0: source on left
-      {conn: 2, fixed: true},  // source → right
-      {conn: 10, fixed: false}, // left+right
-      {conn: 5, fixed: false},  // top+bottom
-      {conn: 0, fixed: true},   // empty
+      {conn: 2, fixed: true},   // 0: source → right (fixed)
+      {conn: 12, fixed: false},  // 1: left+bottom (path)
+      {conn: 3, fixed: false},   // 2: top+right (decoy)
+      {conn: 0, fixed: true},    // 3: empty (fixed)
       // row 1
-      {conn: 0, fixed: true},
-      {conn: 10, fixed: false},
-      {conn: 10, fixed: false},
-      {conn: 0, fixed: true},
+      {conn: 6, fixed: false},   // 4: right+bottom (decoy)
+      {conn: 5, fixed: false},   // 5: top+bottom (path, straight)
+      {conn: 10, fixed: false},  // 6: left+right (decoy, straight)
+      {conn: 0, fixed: true},    // 7: empty (fixed)
       // row 2
-      {conn: 0, fixed: true},
-      {conn: 0, fixed: true},
-      {conn: 12, fixed: false}, // left+bottom
-      {conn: 0, fixed: true},
+      {conn: 0, fixed: true},    // 8: empty (fixed)
+      {conn: 3, fixed: false},   // 9: top+right (path)
+      {conn: 10, fixed: false},  // 10: left+right (path, straight)
+      {conn: 12, fixed: false},  // 11: left+bottom (path)
       // row 3: target on right
-      {conn: 0, fixed: true},
-      {conn: 0, fixed: true},
-      {conn: 3, fixed: false},  // top+right (to target)
-      {conn: 8, fixed: true},   // target ← left
+      {conn: 0, fixed: true},    // 12: empty (fixed)
+      {conn: 9, fixed: false},   // 13: top+left (decoy)
+      {conn: 0, fixed: true},    // 14: empty (fixed)
+      {conn: 1, fixed: true},    // 15: target ← top (fixed)
     ],
     done: false,
   };
@@ -3405,6 +3407,18 @@ function render(){
       ctx.beginPath(); ctx.arc(cx, cy, pulse+3, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = 'rgba(255,217,102,0.8)';
       ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, Math.PI*2); ctx.fill();
+      // Show label for important objects (stairs, doors, etc.)
+      if(obj.label){
+        ctx.fillStyle = 'rgba(217,119,87,0.85)';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        var lt = obj.label;
+        var ltw = ctx.measureText(lt).width + 16;
+        ctx.beginPath(); ctx.roundRect(cx - ltw/2, cy + 12, ltw, 20, 6); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(lt, cx, cy + 26);
+        ctx.textAlign = 'left';
+      }
     }
   }
 
@@ -3427,19 +3441,32 @@ function render(){
     drawPuppy(ctx, 350, 200, true);
   }
 
-  // Draw exits as simple labeled arrows
+  // Draw exits as prominent labeled arrows
   for(const ex of sc.exits){
     const locked = ex.locked && !isExitUnlocked(ex);
     const cx = ex.x + ex.w/2, cy = ex.y + ex.h/2;
-    // Simple semi-transparent label
-    ctx.fillStyle = locked ? 'rgba(80,80,80,0.6)' : 'rgba(30,25,20,0.6)';
-    ctx.font = 'bold 12px sans-serif';
+    // Larger pill-shaped button with glow
+    ctx.fillStyle = locked ? 'rgba(60,60,60,0.85)' : 'rgba(217,119,87,0.9)';
+    ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
     var label = ex.label + (locked ? ' 🔒' : '');
-    var tw = ctx.measureText(label).width + 14;
-    ctx.beginPath(); ctx.roundRect(cx - tw/2, cy - 10, tw, 20, 6); ctx.fill();
+    var tw = ctx.measureText(label).width + 24;
+    var th = 28;
+    // Rounded rect with shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    ctx.beginPath(); ctx.roundRect(cx - tw/2, cy - th/2, tw, th, 14); ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    // Border
+    ctx.strokeStyle = locked ? 'rgba(120,120,120,0.5)' : 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(cx - tw/2, cy - th/2, tw, th, 14); ctx.stroke();
+    // Text
     ctx.fillStyle = locked ? 'rgba(180,180,180,0.9)' : '#fff';
-    ctx.fillText(label, cx, cy + 4);
+    ctx.fillText(label, cx, cy + 5);
     ctx.textAlign = 'left';
   }
 
