@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>快乐小狗图片选择</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0d0d1a;font-family:'PingFang SC',sans-serif;color:#fff;padding:20px;min-height:100vh;}
+h1{text-align:center;font-size:24px;margin-bottom:8px;color:#ffd966;}
+.subtitle{text-align:center;font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:30px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;max-width:1000px;margin:0 auto;}
+.card{background:rgba(255,255,255,0.05);border-radius:16px;overflow:hidden;border:2px solid rgba(255,255,255,0.1);transition:all 0.3s;cursor:pointer;}
+.card:hover{border-color:#d97757;transform:translateY(-4px);}
+.card img{width:100%;aspect-ratio:1;object-fit:cover;display:block;}
+.card-body{padding:14px;}
+.card-label{font-size:16px;font-weight:700;color:#ffd966;margin-bottom:4px;}
+.card-desc{font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5;}
+.current-badge{display:inline-block;background:#7c9a8a;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;margin-bottom:6px;}
+</style>
+</head>
+<body>
+<h1>快乐小狗图片选择</h1>
+<p class="subtitle">选择你最喜欢的小狗形象，告诉我编号即可</p>
+<div class="grid">
+  <div class="card" onclick="alert('你选择了当前图片（原图）')">
+    <img src="assets/images/puppy.jpg" alt="当前">
+    <div class="card-body">
+      <span class="current-badge">当前使用</span>
+      <div class="card-label">原图</div>
+      <div class="card-desc">坐姿正面，阳光草地背景，开心吐舌头</div>
+    </div>
+  </div>
+  <div class="card" onclick="alert('你选择了方案A')">
+    <img src="assets/images/puppy_option1.jpg" alt="方案A">
+    <div class="card-body">
+      <div class="card-label">方案A</div>
+      <div class="card-desc">坐姿正面，草地花朵背景，尾巴摇摆</div>
+    </div>
+  </div>
+  <div class="card" onclick="alert('你选择了方案B')">
+    <img src="assets/images/puppy_option2.jpg" alt="方案B">
+    <div class="card-body">
+      <div class="card-label">方案B</div>
+      <div class="card-desc">站立歪头，公园背景，好奇表情，抬爪</div>
+    </div>
+  </div>
+  <div class="card" onclick="alert('你选择了方案C')">
+    <img src="assets/images/puppy_option3.jpg" alt="方案C">
+    <div class="card-body">
+      <div class="card-label">方案C</div>
+      <div class="card-desc">趴姿前伸，花园背景，放松开心</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
