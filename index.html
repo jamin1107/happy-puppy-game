@@ -12,8 +12,7 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:'PingFang SC','Noto Sans CJK SC','Microsoft YaHei',sans-serif;touch-action:none;user-select:none;}
 #gameWrapper{position:fixed;inset:0;background:#0d0d1a;}
-#bgLayer{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#0d0d1a;}
-#gameCanvas{display:block;box-shadow:none;border-radius:0;position:fixed;z-index:1;touch-action:none;background:transparent;}
+#gameCanvas{display:block;box-shadow:none;border-radius:0;position:fixed;z-index:1;touch-action:none;}
 #uiLayer{position:fixed;inset:0;pointer-events:none;transform-origin:top left;z-index:5;}
 .touch-btn{pointer-events:auto;}
 /* 弹窗遮罩 - 防止穿透到canvas */
@@ -162,7 +161,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 </head>
 <body>
 <div id="gameWrapper">
-<div id="bgLayer"></div>
 <canvas id="gameCanvas"></canvas>
 
 <!-- Loading overlay -->
@@ -174,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.7.0" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.7.0-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0-HD</div>
   </div>
 </div>
 
@@ -201,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.7.0-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.8.0-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -308,23 +306,9 @@ if(!CanvasRenderingContext2D.prototype.roundRect){
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const bgLayer = document.getElementById('bgLayer');
 const CW = 800, CH = 600;
 canvas.width = CW;
 canvas.height = CH;
-
-// ---- CSS Background Layer ----
-// 背景图用CSS background渲染，不走canvas drawImage
-// 浏览器原生GPU加速缩放，比canvas插值质量更高
-var currentBgScene = null;
-function updateBgLayer(sceneName){
-  if(currentBgScene === sceneName) return;
-  currentBgScene = sceneName;
-  var path = imagePaths[sceneName];
-  if(path){
-    bgLayer.style.backgroundImage = 'url(' + path + ')';
-  }
-}
 
 // ---- Resize ----
 // 竖屏手机: canvas填满全屏(fill模式)，裁剪超出部分，最大化利用屏幕像素
@@ -350,13 +334,10 @@ function resizeCanvas(){
   var isPortrait = wh > ww; // 竖屏
   
   if(isPortrait){
-    // 竖屏: cover模式 - 等比缩放填满屏幕，裁掉超出部分
-    // 800x600是4:3比例，手机竖屏约9:19.5，按高度缩放填满高度，宽度会超出被裁
-    // 这样画面不变形不模糊，牺牲两侧少量画面
-    var scale = wh / CH;  // 按高度缩放
-    var scaledW = CW * scale;  // 缩放后的宽度，会大于屏幕宽度
-    var scaledH = wh;  // 高度填满
-    var offsetX = (ww - scaledW) / 2;  // 居中，左右裁切
+    // 竖屏: fill模式 - X/Y独立缩放填满全屏，完整显示所有内容不裁切
+    // 800x600游戏画面会被纵向拉伸适配手机竖屏，所有NPC和标签都可见
+    var scaleX = ww / CW;
+    var scaleY = wh / CH;
     var cw = Math.round(ww * dpr);
     var ch = Math.round(wh * dpr);
     if(canvas.width !== cw || canvas.height !== ch){
@@ -368,14 +349,11 @@ function resizeCanvas(){
     canvas.style.position = 'fixed';
     canvas.style.left = '0px';
     canvas.style.top = '0px';
-    // canvas transform: 先缩放到物理像素，再偏移裁切
-    var physScale = scale * dpr;
-    var physOffsetX = offsetX * dpr;
-    canvasOffsetX = physOffsetX; // 供文字标签使用
-    renderScale = physScale;
-    renderScaleX = physScale;
-    renderScaleY = physScale;
-    ctx.setTransform(physScale, 0, 0, physScale, physOffsetX, 0);
+    canvasOffsetX = 0;
+    renderScale = Math.min(scaleX, scaleY) * dpr;
+    renderScaleX = scaleX * dpr;
+    renderScaleY = scaleY * dpr;
+    ctx.setTransform(renderScaleX, 0, 0, renderScaleY, 0, 0);
   } else {
     // 横屏: contain模式 - 等比缩放居中，完整显示不裁剪
     var scale = Math.min(ww / CW, wh / CH);
@@ -578,7 +556,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.7.0';
+var IMG_VER = 'v2.8.0';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -1500,10 +1478,11 @@ function drawObstacle(ctx, obs){
 }
 
 function drawSceneBg(ctx, sceneName){
-  // 背景图已移至CSS bgLayer层渲染（GPU加速，质量更高）
-  // canvas只处理fallback渐变（图片未加载时）
   const img = imgCache[sceneName];
-  if(!img || !img.complete){
+  if(img && img.complete){
+    // 在游戏坐标系(800x600)中绘制背景图，与NPC/标签使用同一坐标系
+    ctx.drawImage(img, 0, 0, CW, CH);
+  } else {
     // Fallback gradient while loading
     const fallbackColors = {
       community: ['#a8c878','#8ab868'], teashop: ['#d4b896','#c4a878'],
@@ -1523,9 +1502,6 @@ function drawSceneBg(ctx, sceneName){
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, CW, CH);
   }
-  // 图片已加载时不画任何东西，canvas保持透明，CSS bgLayer显示背景图
-  // 确保CSS背景层同步更新
-  updateBgLayer(sceneName);
 }
 
 function isExitUnlocked(ex){
@@ -3892,7 +3868,7 @@ function drawHorrorFlash(ctx){
     if(img && img.complete){
       ctx.save();
       ctx.globalAlpha = Math.min(1, horrorFlashTimer / 200);
-      drawBgPhys(ctx, img);
+      ctx.drawImage(img, 0, 0, CW, CH);
       ctx.restore();
     } else {
       // Fallback white flash
