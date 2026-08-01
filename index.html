@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.9.2" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0-fix" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.9.2-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0-fix-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.7);pointer-events:none;z-index:6;">v2.9.2-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:12px;color:rgba(255,255,0,0.8);pointer-events:none;z-index:6;font-weight:bold;">v2.8.0-fix-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -433,29 +433,28 @@ function drawBgPhys(ctx, img){
 }
 
 // 圆形头像：游戏坐标圆心(x,y)半径size/2 → 物理像素直绘
-// fill模式下t.a≠t.d，用椭圆匹配游戏坐标系的圆（经过非等比缩放后在屏幕上仍为圆）
 function drawNpcPhys(ctx, img, x, y, size){
   var t = ctx.getTransform();
-  var pxX = x * t.a + t.e;
-  var pxY = y * t.d + t.f;
-  var pxRX = (size / 2) * t.a;  // X方向物理像素半径
-  var pxRY = (size / 2) * t.d;  // Y方向物理像素半径
+  var pxX = x * t.a + t.e;      // 物理像素圆心X
+  var pxY = y * t.d + t.f;      // 物理像素圆心Y
+  var pxR = (size / 2) * t.a;   // 物理像素半径
+  var pxSize = pxR * 2;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   // 阴影
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath();
-  ctx.ellipse(pxX, pxY + pxRY + 3 * t.a, pxRX * 0.9, pxRY / 3.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(pxX, pxY + pxR + 3 * t.a, pxR * 0.9, pxR / 3.5, 0, 0, Math.PI * 2);
   ctx.fill();
-  // 椭圆裁剪（匹配游戏坐标系圆形经过非等比缩放后的形状）
+  // 圆形裁剪
   ctx.beginPath();
-  ctx.ellipse(pxX, pxY, pxRX, pxRY, 0, 0, Math.PI * 2);
+  ctx.arc(pxX, pxY, pxR, 0, Math.PI * 2);
   ctx.clip();
-  // 从原图中心正方形裁剪 → 物理像素椭圆
+  // 从原图中心正方形裁剪 → 物理像素圆
   var s = Math.max(img.width, img.height);
   var sx = (img.width - s) / 2;
   var sy = (img.height - s) / 2;
-  ctx.drawImage(img, sx, sy, s, s, pxX - pxRX, pxY - pxRY, pxRX * 2, pxRY * 2);
-  ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
+  ctx.drawImage(img, sx, sy, s, s, pxX - pxR, pxY - pxR, pxSize, pxSize);
+  ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f); // 恢复
 }
 
 // 屏幕坐标转800x600游戏坐标（基于canvas的实际CSS位置）
@@ -557,7 +556,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.9.2';
+var IMG_VER = 'v2.8.0-fix';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -1481,8 +1480,8 @@ function drawObstacle(ctx, obs){
 function drawSceneBg(ctx, sceneName){
   const img = imgCache[sceneName];
   if(img && img.complete){
-    // 物理像素直绘：1920x1440原图 → 物理像素，跳过800x600中间步骤
-    drawBgPhys(ctx, img);
+    // 在游戏坐标系(800x600)中绘制背景图，与NPC/标签使用同一坐标系
+    ctx.drawImage(img, 0, 0, CW, CH);
   } else {
     // Fallback gradient while loading
     const fallbackColors = {
@@ -3869,7 +3868,7 @@ function drawHorrorFlash(ctx){
     if(img && img.complete){
       ctx.save();
       ctx.globalAlpha = Math.min(1, horrorFlashTimer / 200);
-      drawBgPhys(ctx, img);
+      ctx.drawImage(img, 0, 0, CW, CH);
       ctx.restore();
     } else {
       // Fallback white flash
