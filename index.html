@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.9.1" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.9.2" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.9.1-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.9.2-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.9.1-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.7);pointer-events:none;z-index:6;">v2.9.2-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -557,7 +557,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.9.1';
+var IMG_VER = 'v2.9.2';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -1702,8 +1702,8 @@ function interactDogbed(){
 
 // --- Community ---
 function interactWang(){
-  // Horror quest trigger: after 23:00, click 3 times
-  if(G.time >= 23 && !G.flags.horrorEnded){
+  // Horror quest trigger: after 22:00 (night), click 3 times
+  if(G.time >= 22 && !G.flags.horrorEnded){
     if(G.flags.horrorStarted){
       // Already started horror quest
       startDialogue('王阿姨', '👩', ['...']);
