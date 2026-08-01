@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.9.0" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.9.0-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.8.0-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;z-index:6;">v2.9.0-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -410,40 +410,47 @@ setTimeout(resizeCanvas, 1000);
 // 解决：切换到identity transform，直接按物理像素绘制，浏览器从原图采样
 // ============================================================
 
-// 全屏背景图：游戏坐标(0,0,CW,CH) → 物理像素直绘（含源矩形裁剪优化）
+// 全屏背景图：cover-crop模式 — 裁剪源图匹配目标比例，等比缩放，消除非等比拉伸模糊
+// 1920x1440(4:3) → 裁剪为665x1440(9:19.5) → 等比缩放到物理像素，无变形无模糊
 function drawBgPhys(ctx, img){
   var t = ctx.getTransform();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   var destX = t.e, destY = t.f;
   var destW = CW * t.a, destH = CH * t.d;
-  // 计算canvas可见区域与目标矩形的交集
-  var visL = Math.max(0, -destX);
-  var visT = Math.max(0, -destY);
-  var visR = Math.min(destW, canvas.width - destX);
-  var visB = Math.min(destH, canvas.height - destY);
-  if(visR > visL && visB > visT){
-    // 源矩形（原图像素）—只采样可见部分，减少浏览器插值负担
-    var srcX = (visL / destW) * img.width;
-    var srcY = (visT / destH) * img.height;
-    var srcW = ((visR - visL) / destW) * img.width;
-    var srcH = ((visB - visT) / destH) * img.height;
-    ctx.drawImage(img, srcX, srcY, srcW, srcH, destX + visL, destY + visT, visR - visL, visB - visT);
+  // cover-crop: 裁剪源图使其宽高比 = 目标宽高比，确保等比缩放
+  var destAspect = destW / destH;
+  var imgAspect = img.width / img.height;
+  var srcX, srcY, srcW, srcH;
+  if(imgAspect > destAspect){
+    // 源图比目标宽 → 裁剪左右
+    srcH = img.height;
+    srcW = srcH * destAspect;
+    srcX = (img.width - srcW) / 2;
+    srcY = 0;
+  } else {
+    // 源图比目标高 → 裁剪上下
+    srcW = img.width;
+    srcH = srcW / destAspect;
+    srcX = 0;
+    srcY = (img.height - srcH) / 2;
   }
+  ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
   ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
 }
 
 // 圆形头像：游戏坐标圆心(x,y)半径size/2 → 物理像素直绘
+// 使用统一缩放 min(t.a,t.d) 保持圆形，位置仍按fill模式定位
 function drawNpcPhys(ctx, img, x, y, size){
   var t = ctx.getTransform();
-  var pxX = x * t.a + t.e;      // 物理像素圆心X
-  var pxY = y * t.d + t.f;      // 物理像素圆心Y
-  var pxR = (size / 2) * t.a;   // 物理像素半径
-  var pxSize = pxR * 2;
+  var pxX = x * t.a + t.e;
+  var pxY = y * t.d + t.f;
+  var uniScale = Math.min(t.a, t.d);  // 统一缩放，保持圆形不变形
+  var pxR = (size / 2) * uniScale;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   // 阴影
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath();
-  ctx.ellipse(pxX, pxY + pxR + 3 * t.a, pxR * 0.9, pxR / 3.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(pxX, pxY + pxR + 3 * uniScale, pxR * 0.9, pxR / 3.5, 0, 0, Math.PI * 2);
   ctx.fill();
   // 圆形裁剪
   ctx.beginPath();
@@ -453,8 +460,8 @@ function drawNpcPhys(ctx, img, x, y, size){
   var s = Math.max(img.width, img.height);
   var sx = (img.width - s) / 2;
   var sy = (img.height - s) / 2;
-  ctx.drawImage(img, sx, sy, s, s, pxX - pxR, pxY - pxR, pxSize, pxSize);
-  ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f); // 恢复
+  ctx.drawImage(img, sx, sy, s, s, pxX - pxR, pxY - pxR, pxR * 2, pxR * 2);
+  ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
 }
 
 // 屏幕坐标转800x600游戏坐标（基于canvas的实际CSS位置）
@@ -556,7 +563,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.8.0';
+var IMG_VER = 'v2.9.0';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -669,13 +676,20 @@ function drawNpcBillboard(ctx, imgKey, x, y, size){
   ctx.save();
   drawNpcPhys(ctx, img, x, y, size);
   ctx.restore();
-  // 发光边框环（游戏坐标系绘制，矢量图形缩放无模糊）
+  // 发光边框环 — 物理像素统一缩放绘制（确保圆形不变形）
+  var t = ctx.getTransform();
+  var uniScale = Math.min(t.a, t.d);
+  var pxX = x * t.a + t.e;
+  var pxY = y * t.d + t.f;
+  var pxR = (size / 2) * uniScale;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.stroke();
+  ctx.lineWidth = 2.5 * uniScale;
+  ctx.beginPath(); ctx.arc(pxX, pxY, pxR, 0, Math.PI*2); ctx.stroke();
   ctx.strokeStyle = 'rgba(217,119,87,0.4)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(x, y, size/2+2, 0, Math.PI*2); ctx.stroke();
+  ctx.lineWidth = 1 * uniScale;
+  ctx.beginPath(); ctx.arc(pxX, pxY, pxR + 2 * uniScale, 0, Math.PI*2); ctx.stroke();
+  ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
 }
 
 // ============================================================
@@ -1480,8 +1494,8 @@ function drawObstacle(ctx, obs){
 function drawSceneBg(ctx, sceneName){
   const img = imgCache[sceneName];
   if(img && img.complete){
-    // 在游戏坐标系(800x600)中绘制背景图，与NPC/标签使用同一坐标系
-    ctx.drawImage(img, 0, 0, CW, CH);
+    // 物理像素直绘：1920x1440原图 → 物理像素，跳过800x600中间步骤
+    drawBgPhys(ctx, img);
   } else {
     // Fallback gradient while loading
     const fallbackColors = {
@@ -3868,7 +3882,7 @@ function drawHorrorFlash(ctx){
     if(img && img.complete){
       ctx.save();
       ctx.globalAlpha = Math.min(1, horrorFlashTimer / 200);
-      ctx.drawImage(img, 0, 0, CW, CH);
+      drawBgPhys(ctx, img);
       ctx.restore();
     } else {
       // Fallback white flash
