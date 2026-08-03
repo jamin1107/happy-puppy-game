@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0fix6" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0fix7" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0fix6-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0fix7-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:12px;color:rgba(255,255,0,0.8);pointer-events:none;z-index:6;font-weight:bold;">v2.8.0fix6-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:12px;color:rgba(255,255,0,0.8);pointer-events:none;z-index:6;font-weight:bold;">v2.8.0fix7-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -556,7 +556,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.8.0fix6';
+var IMG_VER = 'v2.8.0fix7';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -2567,7 +2567,7 @@ function renderShellPuzzle(ctx){
   ctx.textAlign = 'center';
   ctx.fillText('贝壳推阵', CW/2, 50);
   ctx.font = '13px sans-serif';
-  ctx.fillText('方向键移动光标 · 空格推动贝壳 · ESC退出', CW/2, 430);
+  ctx.fillText('点击格子移动光标 · 点击贝壳推动 · ESC退出', CW/2, 430);
   ctx.fillText('步数: ' + mg.moves, CW/2, 455);
   ctx.textAlign = 'left';
 
@@ -2633,6 +2633,30 @@ function shellPuzzleInput(key){
   // Move cursor
   mg.cursor.r = Math.max(0, Math.min(4, mg.cursor.r + dr));
   mg.cursor.c = Math.max(0, Math.min(4, mg.cursor.c + dc));
+}
+
+// 贝壳推阵点击支持（手机端）
+function shellPuzzleClick(x, y){
+  var mg = G.miniGame;
+  if(mg.done) return;
+  var cellSize = 60;
+  var gridX = (CW - cellSize * 5) / 2;
+  var gridY = 80;
+  for(var r=0; r<5; r++){
+    for(var c=0; c<5; c++){
+      var cx = gridX + c * cellSize;
+      var cy = gridY + r * cellSize;
+      if(x >= cx && x <= cx + cellSize && y >= cy && y <= cy + cellSize){
+        mg.cursor.r = r;
+        mg.cursor.c = c;
+        // 如果点击的是贝壳，直接触发推动
+        if(mg.grid[r][c] === 1){
+          tryPushShell();
+        }
+        return;
+      }
+    }
+  }
 }
 
 function tryPushShell(){
@@ -2787,7 +2811,7 @@ function generateReefSequence(){
   mg.playerInput = [];
   mg.phase = 'watch';
   mg.showIndex = 0;
-  mg.showTimer = 600;
+  mg.showTimer = 1000;
   mg.litCell = -1;
 }
 
@@ -2804,7 +2828,11 @@ function renderReefPuzzle(ctx){
   ctx.font = '13px sans-serif';
   var statusText = '';
   if(mg.phase === 'watch'){
-    statusText = '第' + mg.round + '/3轮 · 观看顺序 (' + (mg.showIndex) + '/' + mg.sequence.length + ')';
+    if(mg.showIndex === 0 && mg.litCell === -1){
+      statusText = '第' + mg.round + '/3轮 · 准备中...';
+    } else {
+      statusText = '第' + mg.round + '/3轮 · 观看顺序 (' + (mg.showIndex) + '/' + mg.sequence.length + ')';
+    }
   } else if(mg.phase === 'input'){
     statusText = '第' + mg.round + '/3轮 · 请踩礁石 (' + mg.playerInput.length + '/' + mg.sequence.length + ')';
   } else if(mg.failed){
@@ -2849,34 +2877,38 @@ function renderReefPuzzle(ctx){
 
 function updateReefPuzzle(dt){
   var mg = G.miniGame;
-  if(mg.done || mg.failed) return;
+  if(mg.done) return;
+  // 失败状态：倒计时后重新开始本轮
+  if(mg.failed){
+    mg.showTimer -= dt;
+    if(mg.showTimer <= 0){
+      mg.failed = false;
+      mg.round--; // 回退轮次，generateReefSequence会+1回到当前轮
+      generateReefSequence();
+    }
+    return;
+  }
   if(mg.phase === 'watch'){
     mg.showTimer -= dt;
     if(mg.showTimer <= 0){
       if(mg.showIndex < mg.sequence.length){
         mg.litCell = mg.sequence[mg.showIndex];
         mg.showIndex++;
-        mg.showTimer = 700;
+        mg.showTimer = 800;
       } else {
         mg.litCell = -1;
         mg.phase = 'input';
         mg.showTimer = 0;
       }
-    } else if(mg.showTimer < 300){
+    } else if(mg.showTimer < 350){
       mg.litCell = -1;
-    }
-  } else if(mg.failed){
-    mg.showTimer -= dt;
-    if(mg.showTimer <= 0){
-      mg.failed = false;
-      generateReefSequence();
     }
   }
 }
 
 function reefPuzzleClick(x, y){
   var mg = G.miniGame;
-  if(mg.phase !== 'input' || mg.done) return;
+  if(mg.phase !== 'input' || mg.done || mg.failed) return;
   var cellSize = 80;
   var gridX = (CW - cellSize * 3) / 2;
   var gridY = 100;
@@ -2975,7 +3007,7 @@ function generateReedSequence(){
   mg.playerInput = [];
   mg.phase = 'watch';
   mg.showIndex = 0;
-  mg.showTimer = 600;
+  mg.showTimer = 1000;
   mg.litCell = -1;
 }
 
@@ -2992,7 +3024,11 @@ function renderReedPuzzle(ctx){
   ctx.font = '13px sans-serif';
   var statusText = '';
   if(mg.phase === 'watch'){
-    statusText = '第' + mg.round + '/3轮 · 观看顺序 (' + mg.showIndex + '/' + mg.sequence.length + ')';
+    if(mg.showIndex === 0 && mg.litCell === -1){
+      statusText = '第' + mg.round + '/3轮 · 准备中...';
+    } else {
+      statusText = '第' + mg.round + '/3轮 · 观看顺序 (' + mg.showIndex + '/' + mg.sequence.length + ')';
+    }
   } else if(mg.phase === 'input'){
     statusText = '第' + mg.round + '/3轮 · 请点击芦苇 (' + mg.playerInput.length + '/' + mg.sequence.length + ')';
   } else if(mg.failed){
@@ -3043,34 +3079,38 @@ function renderReedPuzzle(ctx){
 
 function updateReedPuzzle(dt){
   var mg = G.miniGame;
-  if(mg.done || mg.failed) return;
+  if(mg.done) return;
+  // 失败状态：倒计时后重新开始本轮
+  if(mg.failed){
+    mg.showTimer -= dt;
+    if(mg.showTimer <= 0){
+      mg.failed = false;
+      mg.round--; // 回退轮次，generateReedSequence会+1回到当前轮
+      generateReedSequence();
+    }
+    return;
+  }
   if(mg.phase === 'watch'){
     mg.showTimer -= dt;
     if(mg.showTimer <= 0){
       if(mg.showIndex < mg.sequence.length){
         mg.litCell = mg.sequence[mg.showIndex];
         mg.showIndex++;
-        mg.showTimer = 700;
+        mg.showTimer = 900;
       } else {
         mg.litCell = -1;
         mg.phase = 'input';
         mg.showTimer = 0;
       }
-    } else if(mg.showTimer < 300){
+    } else if(mg.showTimer < 400){
       mg.litCell = -1;
-    }
-  } else if(mg.failed){
-    mg.showTimer -= dt;
-    if(mg.showTimer <= 0){
-      mg.failed = false;
-      generateReedSequence();
     }
   }
 }
 
 function reedPuzzleClick(x, y){
   var mg = G.miniGame;
-  if(mg.phase !== 'input' || mg.done) return;
+  if(mg.phase !== 'input' || mg.done || mg.failed) return;
   var reedSpacing = 130;
   var startX = (CW - reedSpacing * 4) / 2;
   var baseY = 280;
@@ -3351,6 +3391,65 @@ function exitMiniGame(){
   G.state = 'playing';
 }
 
+// --- 重试/退出按钮（所有小游戏通用）---
+var MG_BTN_EXIT = {x: 20, y: 545, w: 100, h: 38};
+var MG_BTN_RETRY = {x: 680, y: 545, w: 100, h: 38};
+
+function drawMinigameButtons(ctx){
+  // 退出按钮
+  ctx.fillStyle = 'rgba(180,80,60,0.85)';
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(MG_BTN_EXIT.x, MG_BTN_EXIT.y, MG_BTN_EXIT.w, MG_BTN_EXIT.h, 8);
+  else ctx.rect(MG_BTN_EXIT.x, MG_BTN_EXIT.y, MG_BTN_EXIT.w, MG_BTN_EXIT.h);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 15px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('退出', MG_BTN_EXIT.x + MG_BTN_EXIT.w/2, MG_BTN_EXIT.y + 24);
+  // 重试按钮
+  ctx.fillStyle = 'rgba(80,130,180,0.85)';
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(MG_BTN_RETRY.x, MG_BTN_RETRY.y, MG_BTN_RETRY.w, MG_BTN_RETRY.h, 8);
+  else ctx.rect(MG_BTN_RETRY.x, MG_BTN_RETRY.y, MG_BTN_RETRY.w, MG_BTN_RETRY.h);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 15px sans-serif';
+  ctx.fillText('重试', MG_BTN_RETRY.x + MG_BTN_RETRY.w/2, MG_BTN_RETRY.y + 24);
+  ctx.textAlign = 'left';
+}
+
+function checkMinigameButtonClick(x, y){
+  // 退出按钮
+  if(x >= MG_BTN_EXIT.x && x <= MG_BTN_EXIT.x + MG_BTN_EXIT.w &&
+     y >= MG_BTN_EXIT.y && y <= MG_BTN_EXIT.y + MG_BTN_EXIT.h){
+    exitMiniGame();
+    showToast('已退出小游戏');
+    return true;
+  }
+  // 重试按钮
+  if(x >= MG_BTN_RETRY.x && x <= MG_BTN_RETRY.x + MG_BTN_RETRY.w &&
+     y >= MG_BTN_RETRY.y && y <= MG_BTN_RETRY.y + MG_BTN_RETRY.h){
+    retryMinigame();
+    showToast('已重置，重新开始');
+    return true;
+  }
+  return false;
+}
+
+function retryMinigame(){
+  if(!G.miniGame) return;
+  var type = G.miniGame.type;
+  if(type === 'shell'){
+    startShellPuzzle();
+  } else if(type === 'reef'){
+    startReefPuzzle();
+  } else if(type === 'reed'){
+    startReedPuzzle();
+  } else if(type === 'circuit'){
+    startCircuitPuzzle();
+  }
+}
+
 function renderMiniGame(ctx){
   if(!G.miniGame) return;
   // Dark overlay
@@ -3361,6 +3460,10 @@ function renderMiniGame(ctx){
     case 'reef': renderReefPuzzle(ctx); break;
     case 'reed': renderReedPuzzle(ctx); break;
     case 'circuit': renderCircuitPuzzle(ctx); break;
+  }
+  // 绘制通用按钮（完成后不显示退出，只显示重试→退出由对话处理）
+  if(!G.miniGame.done){
+    drawMinigameButtons(ctx);
   }
 }
 
@@ -3374,7 +3477,10 @@ function updateMiniGame(dt){
 
 function miniGameCanvasClick(x, y){
   if(!G.miniGame) return false;
+  // 先检查通用按钮
+  if(checkMinigameButtonClick(x, y)) return true;
   switch(G.miniGame.type){
+    case 'shell': shellPuzzleClick(x, y); return true;
     case 'reef': reefPuzzleClick(x, y); return true;
     case 'reed': reedPuzzleClick(x, y); return true;
     case 'circuit': circuitPuzzleClick(x, y); return true;
