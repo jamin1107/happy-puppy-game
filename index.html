@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0fix5" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0fix6" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0fix5-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0fix6-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:12px;color:rgba(255,255,0,0.8);pointer-events:none;z-index:6;font-weight:bold;">v2.8.0fix5-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:12px;color:rgba(255,255,0,0.8);pointer-events:none;z-index:6;font-weight:bold;">v2.8.0fix6-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -556,7 +556,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.8.0fix5';
+var IMG_VER = 'v2.8.0fix6';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -608,8 +608,9 @@ function loadHorrorImages(){
     img.src = path;
   }
 }
-function loadImages(){
-  for(const [key, path] of Object.entries(imagePaths)){
+function loadImageWithRetry(key, path, maxRetries){
+  var retries = 0;
+  function attempt(){
     const img = new Image();
     img.onload = () => {
       imgCache[key] = img;
@@ -617,11 +618,25 @@ function loadImages(){
       updateLoadingProgress(imagesLoadedCount, imagesTotalCount);
     };
     img.onerror = () => {
-      console.warn('Failed to load: ' + path);
-      imagesLoadedCount++;
-      updateLoadingProgress(imagesLoadedCount, imagesTotalCount);
+      console.warn('Failed to load (' + (retries+1) + '/' + maxRetries + '): ' + path);
+      if(retries < maxRetries - 1){
+        retries++;
+        // 重试前等待1秒
+        setTimeout(attempt, 1000);
+      } else {
+        // 最终失败，继续计数
+        imagesLoadedCount++;
+        updateLoadingProgress(imagesLoadedCount, imagesTotalCount);
+      }
     };
-    img.src = path;
+    img.src = path + (path.indexOf('?') >= 0 ? '&r=' + retries : '?r=' + retries);
+  }
+  attempt();
+}
+
+function loadImages(){
+  for(const [key, path] of Object.entries(imagePaths)){
+    loadImageWithRetry(key, path, 3);
   }
 }
 
@@ -1480,28 +1495,40 @@ function drawObstacle(ctx, obs){
 
 function drawSceneBg(ctx, sceneName){
   const img = imgCache[sceneName];
-  if(img && img.complete){
-    // 在游戏坐标系(800x600)中绘制背景图，与NPC/标签使用同一坐标系
-    ctx.drawImage(img, 0, 0, CW, CH);
+  if(img && img.complete && img.naturalWidth > 0){
+    // 使用物理像素直绘，避免fill模式下双重缩放导致模糊/变形
+    drawBgPhys(ctx, img);
   } else {
-    // Fallback gradient while loading
+    // Fallback gradient while loading - 恐怖场景也不能太黑，用中等暗色而非极暗色
     const fallbackColors = {
       community: ['#a8c878','#8ab868'], teashop: ['#d4b896','#c4a878'],
       delivery: ['#c4c4c4','#b4b4b4'], kindergarten: ['#b8d8a0','#a8c890'],
       parking_b1: ['#555560','#444450'], parking_b2: ['#444450','#333340'],
       sm_mall: ['#d4c4b4','#c4b4a4'], supermarket: ['#e8e0d4','#d8d0c4'],
       beach: ['#f0dca0','#e0ca90'],
-      stairwell: ['#1a1a22','#0d0d12'],
-      horror_basement: ['#1e1e28','#12121a'],
-      corridor: ['#1a1e24','#0d1014'],
-      mirror_room: ['#1c1c24','#101018'],
-      ritual_room: ['#1e1818','#120c0c'],
+      // 恐怖场景fallback用中等暗色，确保即使图片未加载也能看到UI和出口
+      stairwell: ['#3a3a44','#2a2a34'],
+      horror_basement: ['#3e3e48','#2e2e38'],
+      corridor: ['#3a3e44','#2a2e34'],
+      mirror_room: ['#3c3c44','#2c2c34'],
+      ritual_room: ['#3e3838','#2e2828'],
     };
     const fc = fallbackColors[sceneName] || ['#999','#888'];
     const grad = ctx.createLinearGradient(0, 0, 0, CH);
     grad.addColorStop(0, fc[0]); grad.addColorStop(1, fc[1]);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, CW, CH);
+    
+    // 如果图片未加载，显示加载提示文字
+    if(!img || !img.complete){
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
+      ctx.font = 'bold ' + (16 * dpr) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('场景加载中...', canvas.width / 2, canvas.height / 2);
+      ctx.restore();
+    }
   }
 }
 
