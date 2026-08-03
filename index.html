@@ -172,14 +172,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
 
 <!-- Title Screen (outside uiLayer for full-viewport coverage) -->
 <div id="titleScreen">
-  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0fix4" alt="">
+  <img id="titleBgImg" src="assets/images/cover.webp?v=v2.8.0fix5" alt="">
   <div class="title-overlay"></div>
   <div class="title-content">
     <div class="title-deco"></div>
     <div class="title-name">快乐小狗寻回记</div>
     <div class="title-sub">一场穿越昼夜的解谜冒险</div>
     <button class="title-btn touch-btn" id="startBtn">开始游戏</button>
-    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0fix4-HD</div>
+    <div style="position:absolute;bottom:8px;right:12px;font-size:11px;color:rgba(255,255,255,0.4);pointer-events:none;">v2.8.0fix5-HD</div>
   </div>
 </div>
 
@@ -199,7 +199,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d1a;font-family:
     <div class="hud-badge touch-btn" id="questBtn" style="cursor:pointer;"><span class="icon">📋</span>任务</div>
   </div>
   <div class="hud-time" id="timeDisplay">08:00</div>
-  <div style="position:fixed;bottom:2px;right:6px;font-size:12px;color:rgba(255,255,0,0.8);pointer-events:none;z-index:6;font-weight:bold;">v2.8.0fix4-HD</div>
+  <div style="position:fixed;bottom:2px;right:6px;font-size:12px;color:rgba(255,255,0,0.8);pointer-events:none;z-index:6;font-weight:bold;">v2.8.0fix5-HD</div>
 </div>
 
 <!-- Time skip buttons -->
@@ -556,7 +556,7 @@ const G = {
 //  IMAGE CACHE - AI Generated Art
 // ============================================================
 // 缓存破坏：每次更新图片后修改此版本号，强制浏览器重新下载
-var IMG_VER = 'v2.8.0fix4';
+var IMG_VER = 'v2.8.0fix5';
 function imgSrc(path){ return path + '?v=' + IMG_VER; }
 
 const imgCache = {};
@@ -3918,73 +3918,85 @@ function checkIronDoorClick(x, y){
 }
 
 // Draw iron door in community when has copper key
+// 使用物理像素直绘（和drawNpcPhys一样），避免fill模式下Y轴拉伸导致变形
 function drawIronDoor(ctx){
   if(G.scene === 'community' && G.flags.hasCopperKey && !G.flags.horrorEnded && G.flags.horrorStarted){
-    var dx = IRON_DOOR_X, dy = IRON_DOOR_Y, dw = IRON_DOOR_W, dh = IRON_DOOR_H;
-    var cx = dx + dw/2, cy = dy + dh/2;
+    // 获取当前transform信息
+    var t = ctx.getTransform();
+    // 将游戏坐标转换为物理像素坐标（使用统一缩放，防止变形）
+    var uniformScale = Math.min(t.a, t.d); // 使用较小的缩放比例，保持正方形比例
+    var pxX = IRON_DOOR_X * t.a + t.e;  // 物理像素左上角X
+    var pxY = IRON_DOOR_Y * t.d + t.f;  // 物理像素左上角Y
+    // 使用统一缩放计算门的大小（物理像素）
+    var pxW = IRON_DOOR_W * uniformScale;
+    var pxH = IRON_DOOR_H * uniformScale;
+    var pxCx = pxX + pxW / 2;
+    var pxCy = pxY + pxH / 2;
 
-    // 1. 脉冲发光外框（提示可交互）
+    // 切换到identity transform进行物理像素直绘
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
     var pulse = 0.5 + Math.sin(Date.now()/400) * 0.5;
+
+    // 1. 脉冲发光外框
     ctx.save();
-    ctx.shadowColor = 'rgba(255,200,80,' + (0.3 + pulse * 0.3) + ')';
-    ctx.shadowBlur = 8 + pulse * 6;
-    ctx.fillStyle = 'rgba(50,45,40,0.85)';
-    ctx.fillRect(dx, dy, dw, dh);
+    ctx.shadowColor = 'rgba(255,200,80,' + (0.4 + pulse * 0.3) + ')';
+    ctx.shadowBlur = (8 + pulse * 8) * dpr;
+    ctx.fillStyle = 'rgba(50,45,40,0.88)';
+    ctx.fillRect(pxX, pxY, pxW, pxH);
     ctx.restore();
 
     // 2. 门框（金属边框）
-    ctx.strokeStyle = 'rgba(120,100,70,0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(dx, dy, dw, dh);
+    ctx.strokeStyle = 'rgba(120,100,70,0.85)';
+    ctx.lineWidth = 3 * dpr;
+    ctx.strokeRect(pxX, pxY, pxW, pxH);
     // 内框
     ctx.strokeStyle = 'rgba(80,65,50,0.6)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(dx + 6, dy + 6, dw - 12, dh - 12);
+    ctx.lineWidth = 1 * dpr;
+    ctx.strokeRect(pxX + 6 * dpr, pxY + 6 * dpr, pxW - 12 * dpr, pxH - 12 * dpr);
 
     // 3. 门板纹理（竖纹）
     ctx.strokeStyle = 'rgba(70,60,50,0.4)';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * dpr;
     for(var i = 1; i < 4; i++){
-      var lx = dx + (dw / 4) * i;
+      var lx = pxX + (pxW / 4) * i;
       ctx.beginPath();
-      ctx.moveTo(lx, dy + 8);
-      ctx.lineTo(lx, dy + dh - 8);
+      ctx.moveTo(lx, pxY + 8 * dpr);
+      ctx.lineTo(lx, pxY + pxH - 8 * dpr);
       ctx.stroke();
     }
 
     // 4. 门把手（圆形）
-    ctx.fillStyle = 'rgba(180,150,100,0.7)';
+    ctx.fillStyle = 'rgba(180,150,100,0.75)';
     ctx.beginPath();
-    ctx.arc(dx + dw - 15, cy, 4, 0, Math.PI * 2);
+    ctx.arc(pxX + pxW - 15 * dpr, pxCy, 5 * dpr, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'rgba(100,80,50,0.5)';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * dpr;
     ctx.stroke();
 
     // 5. 钥匙孔（黄色脉冲发光）
-    var keyPulse = 3 + Math.sin(Date.now()/300) * 1.5;
+    var keyPulse = (3 + Math.sin(Date.now()/300) * 1.5) * dpr;
     // 外光晕
-    ctx.fillStyle = 'rgba(255,217,102,' + (0.2 + pulse * 0.15) + ')';
+    ctx.fillStyle = 'rgba(255,217,102,' + (0.25 + pulse * 0.2) + ')';
     ctx.beginPath();
-    ctx.arc(cx, cy + 5, keyPulse + 6, 0, Math.PI * 2);
+    ctx.arc(pxCx, pxCy + 5 * dpr, keyPulse + 6 * dpr, 0, Math.PI * 2);
     ctx.fill();
     // 钥匙孔本体
-    ctx.fillStyle = 'rgba(255,217,102,0.8)';
+    ctx.fillStyle = 'rgba(255,217,102,0.85)';
     ctx.beginPath();
-    ctx.arc(cx, cy + 5, keyPulse, 0, Math.PI * 2);
+    ctx.arc(pxCx, pxCy + 5 * dpr, keyPulse, 0, Math.PI * 2);
     ctx.fill();
-    // 钥匙孔中心
+    // 钥匙孔中心（暗色）
     ctx.fillStyle = 'rgba(60,50,20,0.9)';
     ctx.beginPath();
-    ctx.arc(cx, cy + 5, keyPulse * 0.4, 0, Math.PI * 2);
+    ctx.arc(pxCx, pxCy + 5 * dpr, keyPulse * 0.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // 6. 标签 "🔍 铁门" - 物理像素绘制，大字体+橙色背景
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, canvasOffsetX, 0);
+    // 6. 标签 "🔍 铁门" - 在门下方
     var doorFont = scaledFont(16, 17);
-    var doorPxX = cx * fontScaleX;
-    var doorPxY = (dy + dh + 4) * fontScaleY;
+    var doorPxX = pxCx;
+    var doorPxY = pxY + pxH + 4 * dpr;
     ctx.font = 'bold ' + doorFont + 'px sans-serif';
     ctx.textAlign = 'center';
     var doorLabel = '🔍 铁门';
@@ -4005,8 +4017,10 @@ function drawIronDoor(ctx){
     // 文字
     ctx.fillStyle = '#fff';
     ctx.fillText(doorLabel, doorPxX, doorPxY + doorFont + 4 * dpr);
-    ctx.restore();
     ctx.textAlign = 'left';
+
+    // 恢复transform
+    ctx.setTransform(t.a, t.b, t.c, t.d, t.e, t.f);
   }
 }
 
